@@ -4,6 +4,7 @@
 //   icon.png   -> assets/subreddit/avatar.png  (256x256, subreddit avatar)
 //   banner.png -> assets/subreddit/banner.jpg  (1920x384, subreddit banner, <= 500 KB)
 //   logo.png   -> public/brand/logo.webp       (trimmed, 640px wide, <= 60 KB; in-game, load lazily)
+//   vault-gold.png -> public/brand/vault-gold.webp (see vaultGold below)
 // Run from tools/assets (sharp lives in tools/assets/node_modules): npm run process
 import sharp from 'sharp';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
@@ -32,9 +33,21 @@ async function writeUnder(rel, maxBytes, encode) {
   throw new Error(`${rel} still exceeds ${maxBytes} bytes`);
 }
 
+// vault-gold.png -> public/brand/vault-gold.webp (trimmed, 480px wide, <= 60 KB; open-vault overlay)
+async function vaultGold() {
+  const gold = await sharp(src('vault-gold.png')).trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 10 }).png().toBuffer();
+  await writeUnder('public/brand/vault-gold.webp', 60 * KB, (quality) =>
+    sharp(gold).resize({ width: 480, withoutEnlargement: true }).webp({ quality, alphaQuality: 90, effort: 6 }).toBuffer(),
+  );
+}
+
 async function main() {
-  await mkdir(out('assets/subreddit'), { recursive: true });
   await mkdir(out('public/brand'), { recursive: true });
+  // `--only vault-gold` re-encodes just the overlay art (leaves icon/banner/logo untouched).
+  const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
+  if (only === 'vault-gold') return vaultGold();
+  await mkdir(out('assets/subreddit'), { recursive: true });
+  await vaultGold();
 
   await sharp(src('icon.png')).resize(1024, 1024, { fit: 'cover' }).png({ compressionLevel: 9, palette: true, quality: 95 }).toFile(out('assets/icon.png'));
   await report('assets/icon.png');

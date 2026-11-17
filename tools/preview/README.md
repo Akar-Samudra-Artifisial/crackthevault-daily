@@ -7,7 +7,8 @@ Mock data per `docs/client-contract.md`; not part of `npm run build` (Vite build
 npm run preview:ui   # http://localhost:5199/game.html?s=board
 ```
 
-Scenarios (`?s=`): `board` (8 clues), `drill` (1 dial open), `cracked` (crack event after ~1 s),
+Scenarios (`?s=`): `board` (8 clues), `drill` (1 dial open), `cracked` (crack event after ~1 s; `&code=322` cracks
+the first vault whose spec fits that code, `&me=1` makes it your crack),
 `limit` (no tries left), `empty` (vault #1, no clues), `live` (a clue every 2.5 s), `loggedout`,
 `stale` (codes left "≤ X", exact after ~2 s), `maxdials` (vault #9: 6 dials 0–9, the widest
 vault — check it at 320 px), `drillsoon` (next dial opens 20 s after load: the drill chip

@@ -50,6 +50,12 @@ export const scenarioFromUrl = (): Scenario => {
   return SCENARIOS.find((s) => s === raw) ?? 'board';
 };
 
+/** `?code=322` → [3, 2, 2] (digits only, 1–10 long); anything else → null. */
+const forcedCode = (): number[] | null => {
+  const raw = new URLSearchParams(window.location.search).get('code') ?? '';
+  return /^\d{1,10}$/.test(raw) ? [...raw].map(Number) : null;
+};
+
 /** /api/leaderboard mock: `?lb=full|empty|error` (default: empty for `s=empty`, else full). */
 export type LeaderboardMode = 'full' | 'top' | 'empty' | 'error';
 
@@ -116,6 +122,23 @@ export const createMock = (scenario: Scenario) => {
     );
   };
   let secret = round === 6 ? [6, 2, 7, 4, 1] : codeFor(round, 5);
+  // cracked + `&code=322`: crack the first vault of the day whose spec fits that code
+  // (repeated digits, 000, 6 dials …) to check the overlay's code row.
+  const forced = forcedCode();
+  if (scenario === 'cracked' && forced) {
+    const fit = Array.from({ length: 12 }, (_, i) => i + 1).find((r) => {
+      const s = specFor(DAY, r);
+      return (
+        s.dials === forced.length &&
+        forced.every((d) => d <= s.maxDigit) &&
+        (!s.unique || new Set(forced).size === forced.length)
+      );
+    });
+    if (fit !== undefined) {
+      round = fit;
+      secret = forced;
+    }
+  }
   let seq = 20;
   let board: BoardEntry[] = [];
   const cracks: CrackRecord[] = Array.from({ length: round - 1 }, (_, i) => ({
@@ -391,7 +414,10 @@ export const createMock = (scenario: Scenario) => {
   /** Scripted events per scenario (after the first render). */
   const script = () => {
     if (scenario === 'cracked') {
-      window.setTimeout(() => play('keymaster_9', [...secret]), 900);
+      const who = new URLSearchParams(window.location.search).has('me')
+        ? ME
+        : 'keymaster_9';
+      window.setTimeout(() => play(who, [...secret]), 900);
     }
     if (scenario === 'live') {
       let i = 0;

@@ -79,5 +79,26 @@
     "cost": 0.0606,
     "file": "assets-src/brand/logo-v1-rejected.raw.png",
     "note": "rejected: rendered \"theVault\" without a word space"
+  },
+  "vault-gold": {
+    "model": "bytedance:seedream@5.5",
+    "prompt": "game treasure art, a neat stepped pyramid stack of shiny gold bullion bars seen from a slight three-quarter front view, three rows: five bars at the bottom, three in the middle, two on top, each bar a trapezoid ingot with bevelled edges, warm brass gold body with bright light-yellow top faces and crisp white specular glints on the corners, a few round gold coins leaning against the bottom row, isolated object centered with empty space around it, plain flat white background, no vault, no door, no shadow on the ground, no text, no letters, no numbers, no symbols stamped on the bars, clean flat cartoon game art, thick near-black outline, simple two-tone cel shading, palette of dark chocolate brown (#2b1a12), warm brass gold (#f5b83d), light brass (#ffd77a), cool steel grey (#a9b5c1) and cream (#fff4e0), crisp vector-like shapes, no gradients noise, no texture grain, Match the art style of the reference image.",
+    "size": {
+      "width": 1536,
+      "height": 1024
+    },
+    "transparent": true,
+    "reference": "local-file",
+    "seed": 1632247989,
+    "cost": 0.0286,
+    "taskUUID": "40b8bbfe-316a-4d39-a25a-d787716c5fc7",
+    "imageUUID": "f771cc66-b707-4730-a967-409e319fe180",
+    "removeBackground": {
+      "model": "runware:112@5",
+      "taskUUID": "4463aa7b-0af3-466f-b7ba-bcc5df8ef801",
+      "cost": 0.0006
+    },
+    "file": "assets-src/brand/vault-gold.png",
+    "generatedAt": "2026-11-17T12:23:21.885Z"
   }
 }

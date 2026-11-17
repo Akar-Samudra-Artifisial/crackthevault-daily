@@ -15,6 +15,14 @@
       "prompt": "wide panoramic banner, inside a cozy dark chocolate brown bank vault room, a wall of riveted steel safe deposit boxes along the far left and far right ends, a small round steel vault door with a brass handle wheel standing slightly open at the right end with a warm golden glow and a neat stack of gold bars inside, a few scattered gold coins on the floor, the large center area is a calm plain dark brown wall with subtle brass trim lines, no people, no text, no letters, no numbers"
     },
     {
+      "id": "vault-gold",
+      "transparent": true,
+      "removeBackground": true,
+      "width": 1536,
+      "height": 1024,
+      "prompt": "game treasure art, a neat stepped pyramid stack of shiny gold bullion bars seen from a slight three-quarter front view, three rows: five bars at the bottom, three in the middle, two on top, each bar a trapezoid ingot with bevelled edges, warm brass gold body with bright light-yellow top faces and crisp white specular glints on the corners, a few round gold coins leaning against the bottom row, isolated object centered with empty space around it, plain flat white background, no vault, no door, no shadow on the ground, no text, no letters, no numbers, no symbols stamped on the bars"
+    },
+    {
       "id": "logo",
       "model": "ideogram:4.5@0",
       "width": 2560,

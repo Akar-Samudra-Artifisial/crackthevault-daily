@@ -1,5 +1,7 @@
-// The big moment: the wheel spins, the door swings open, the code is revealed, confetti.
-// CSS drives the timeline (game.css); prefers-reduced-motion shows the open vault at once.
+// The big moment: the wheel spins, the bolts pull in, the thick door swings open on its hinges,
+// the gold inside glints, the code is revealed, confetti. CSS drives the timeline (game.css);
+// prefers-reduced-motion shows the open vault at once.
+import { codeCells, codeLabel } from '../shared/crack-code';
 import type { CrackRecord } from '../shared/vault';
 import { h } from './dom';
 import { ordinal, streakText } from './format';
@@ -7,6 +9,13 @@ import { vaultDoor } from './vault-door';
 
 const CONFETTI = 46;
 const CONFETTI_COLORS = ['brass', 'red', 'green', 'yellow', 'cream'];
+/** Runware art (public/brand, copied to dist/client by Vite); game view only, never the splash. */
+const GOLD_SRC = '/brand/vault-gold.webp';
+/** Stacked steel discs between the door's face and back: the visible thickness of the door. */
+const DOOR_EDGE_LAYERS = 10;
+/** Locking bolts around the door (degrees; 0 = right, away from the hinge). */
+const BOLT_ANGLES = [-90, -45, 0, 45, 90];
+const SPARKS = 5;
 
 /** CSS custom properties through CSSOM (not a style attribute, which a strict CSP may block). */
 const withVars = <T extends HTMLElement>(
@@ -16,6 +25,35 @@ const withVars = <T extends HTMLElement>(
   for (const [k, v] of Object.entries(vars)) node.style.setProperty(k, v);
   return node;
 };
+
+/** The swinging door: face (shared SVG + bolts), edge layers, back plate. */
+const swingDoor = (): HTMLElement =>
+  h(
+    'div',
+    { class: 'crack-door' },
+    h('div', { class: 'door-back' }),
+    ...Array.from({ length: DOOR_EDGE_LAYERS }, (_, k) =>
+      withVars(
+        h('div', {
+          class:
+            k === 0 || k === DOOR_EDGE_LAYERS - 1
+              ? 'door-edge is-outer'
+              : 'door-edge',
+        }),
+        {
+          '--k': String((k + 1) / (DOOR_EDGE_LAYERS + 1)),
+        }
+      )
+    ),
+    h(
+      'div',
+      { class: 'door-face' },
+      ...BOLT_ANGLES.map((a) =>
+        withVars(h('span', { class: 'door-bolt' }), { '--a': `${a}deg` })
+      ),
+      vaultDoor()
+    )
+  );
 
 export type CrackMoment = {
   crack: CrackRecord;
@@ -62,35 +100,61 @@ export class CrackOverlay {
       },
       h('div', { class: 'crack-rays', 'aria-hidden': 'true' }),
       this.confetti,
+      // Scrolls when the webview is shorter than the scene (desktop modal), never clips.
       h(
         'div',
-        { class: 'crack-stage' },
+        { class: 'crack-scroll' },
         h(
           'div',
-          { class: 'crack-vault', 'aria-hidden': 'true' },
+          { class: 'crack-stage' },
           h(
             'div',
-            { class: 'crack-interior' },
-            h('div', { class: 'crack-glow' }),
+            { class: 'crack-vault', 'aria-hidden': 'true' },
             h(
               'div',
-              { class: 'crack-gold' },
-              h('span', { class: 'bar b1' }),
-              h('span', { class: 'bar b2' }),
-              h('span', { class: 'bar b3' })
-            )
+              { class: 'crack-frame' },
+              h(
+                'div',
+                { class: 'crack-interior' },
+                h('div', { class: 'crack-glow' }),
+                h('div', { class: 'crack-shelf' }),
+                h('img', {
+                  class: 'crack-gold',
+                  src: GOLD_SRC,
+                  alt: '',
+                  width: 480,
+                  height: 301,
+                  loading: 'lazy',
+                  decoding: 'async',
+                }),
+                h(
+                  'div',
+                  { class: 'crack-sparks' },
+                  ...Array.from({ length: SPARKS }, (_, i) =>
+                    h('span', { class: `spark s${i + 1}` })
+                  )
+                )
+              )
+            ),
+            swingDoor(),
+            h('span', { class: 'crack-hinge h1' }),
+            h('span', { class: 'crack-hinge h2' })
           ),
-          h('div', { class: 'crack-door' }, vaultDoor())
-        ),
-        this.kicker,
-        this.title,
-        this.code,
-        this.meta,
-        this.flair,
-        this.stats,
-        this.next
+          this.kicker,
+          this.title,
+          this.code,
+          this.meta,
+          this.flair,
+          this.stats,
+          this.next
+        )
       )
     );
+    // The overlay img is lazy and hidden until a crack: warm the cache now so the gold is
+    // decoded by the time the door opens.
+    const warm = new Image();
+    warm.decoding = 'async';
+    warm.src = GOLD_SRC;
     this.root.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') this.close();
       if (e.key === 'Tab') {
@@ -128,18 +192,23 @@ export class CrackOverlay {
     this.title.textContent = mine
       ? `You cracked Vault #${crack.round}!`
       : `u/${crack.username} cracked Vault #${crack.round}!`;
-    this.code.setAttribute(
-      'aria-label',
-      `The code was ${crack.code.join(' ')}`
-    );
+    this.code.setAttribute('aria-label', codeLabel(crack.code));
     this.code.setAttribute('role', 'img');
+    // One plate per position (repeats included). The plate is always visible; only the number
+    // on it flips in, so a frame caught mid-animation never looks like a missing digit.
     this.code.replaceChildren(
-      ...crack.code.map((d, i) =>
-        withVars(h('span', { class: 'crack-digit' }, String(d)), {
-          '--i': String(i),
-        })
+      ...codeCells(crack.code).map((cell) =>
+        withVars(
+          h(
+            'span',
+            { class: 'crack-digit' },
+            h('span', { class: 'crack-digit-face' }, cell.digit)
+          ),
+          { '--i': String(cell.index) }
+        )
       )
     );
+    this.code.dataset['dials'] = String(crack.code.length);
     this.meta.textContent =
       crack.guesses === 1
         ? 'Opened on the very first try'
