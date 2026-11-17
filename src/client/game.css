@@ -1280,6 +1280,123 @@
   }
 }
 
+/* Short viewports. Reddit's expanded webview in the Mobile and Desktop sizes is only ~596 px
+   tall (measured in a playtest: 379×597 and 722×596), so the full-size header, counter and dock
+   squeezed the clue board down to one row. Here the chrome slims down so the board keeps
+   ≥ 3 rows at 596 px. The ± buttons keep their --tap height. */
+@media (max-height: 700px) {
+  .game-shell {
+    gap: var(--space-2);
+    padding-block: var(--space-2) max(var(--space-2), env(safe-area-inset-bottom));
+  }
+  .vault-head {
+    gap: var(--space-2);
+  }
+  /* Same as the ≤ 360 px rule: keeps the spec line unwrapped at 320 px. */
+  .vault-logo {
+    height: 32px;
+  }
+  .sound-toggle {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    font-size: var(--step-0);
+  }
+  .sound-toggle::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+  }
+  .vault-title {
+    flex-wrap: nowrap;
+    font-size: var(--step-2);
+    white-space: nowrap;
+  }
+  .vault-theme {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--step-0);
+  }
+  .vault-spec {
+    margin-top: 0;
+  }
+  .chip {
+    padding-block: 3px;
+  }
+  .board-top {
+    align-items: center;
+    padding: var(--space-1) var(--space-3);
+  }
+  .codes-n {
+    font-size: var(--step-3);
+  }
+  .codes-word {
+    margin-top: 0;
+  }
+  .legend {
+    margin-top: 2px;
+  }
+  .board-scroll {
+    padding: 4px 6px;
+  }
+  .board {
+    gap: 4px;
+  }
+  .clue {
+    padding-block: 4px;
+  }
+  .clue-digit {
+    height: 26px;
+  }
+  .peg {
+    width: 24px;
+    height: 24px;
+  }
+  .dock {
+    gap: var(--space-2);
+    padding: var(--space-2);
+  }
+  .dial {
+    gap: 2px;
+  }
+  .dial-window {
+    height: 40px;
+    border-width: 2px;
+    box-shadow: inset 0 4px 0 rgb(0 0 0 / 0.35);
+  }
+  .dial-digit {
+    font-size: 1.5rem;
+  }
+  .dial-lock {
+    bottom: -8px;
+  }
+  .try-button {
+    min-height: var(--tap);
+  }
+  .tries {
+    padding-block: 4px;
+  }
+  .dock-note {
+    line-height: 1.25;
+  }
+}
+
+/* Very short viewports: the page scrolls as a whole and the board keeps a fixed ~3-row height. */
+@media (max-height: 480px) {
+  .game {
+    overflow-y: auto;
+  }
+  .game-shell {
+    height: auto;
+    min-height: 100dvh;
+  }
+  .board-panel {
+    flex: none;
+    height: 15rem;
+  }
+}
+
 /* ---------- Leaderboard sheet (native <dialog>, leaderboard.ts) ---------- */
 .lb-sheet {
   inset: 0;

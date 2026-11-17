@@ -117,6 +117,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The clue board showed only one row in Reddit's Mobile and Desktop expanded view (the webview
+  is only ~596 px tall). On screens ≤ 700 px tall the header, codes counter, clue rows and dials
+  are slimmer, so the board shows at least 3 rows there; below 480 px the page scrolls and the
+  board keeps a fixed height.
 - With the game open in two tabs, a guess in one tab now lowers the tries left in the other
   (from the realtime clue), never below 0.
 - A guess whose EXEC threw after committing is no longer recorded twice on retry (each request
