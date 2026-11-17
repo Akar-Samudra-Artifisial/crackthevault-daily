@@ -25,11 +25,14 @@
   gap: var(--space-3);
 }
 
-.vault-badge {
+/* Runware wordmark (640×270 source, ≤ 2× density at this size). */
+.vault-logo {
   flex: none;
-  width: 52px;
-  height: 52px;
-  filter: drop-shadow(0 3px 0 var(--ink));
+  display: block;
+  width: auto;
+  height: 48px;
+  aspect-ratio: 640 / 270;
+  object-fit: contain;
 }
 
 .vault-head-text {
@@ -87,6 +90,52 @@
 .chip-drill.is-open {
   background: var(--brass);
   color: var(--ink);
+}
+
+/* Under a minute to the next drilled dial: a soft heartbeat. */
+.chip-drill.is-soon {
+  animation: chip-pulse 1s ease-in-out infinite;
+}
+
+@keyframes chip-pulse {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+/* 🔊/🔇 toggle in the header (aria-pressed = sound on). */
+.sound-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  margin-left: auto;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--panel-2);
+  font-size: var(--step-1);
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: var(--drop-s);
+}
+
+.sound-toggle:hover {
+  background: var(--panel-3);
+}
+
+.sound-toggle:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.sound-toggle[aria-pressed='false'] {
+  opacity: 0.75;
 }
 
 /* 🏆 chip = leaderboard button. Looks like a chip; the ::after widens the hit area to --tap. */
@@ -188,6 +237,7 @@
   font-size: var(--step--1);
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  line-height: 1.25;
   color: var(--muted);
 }
 
@@ -275,14 +325,55 @@
   background: #4a3214;
 }
 
+/* Fresh clues: card pops in; your own gets a brass ring, a blank one (0 🟢 0 🟡) shakes its pegs,
+   any 🟢 makes the green peg pop with a halo. Transform/opacity only. */
+.clue {
+  position: relative;
+}
+
+.clue::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 3px solid var(--brass);
+  border-radius: calc(var(--radius) + 3px);
+  opacity: 0;
+  pointer-events: none;
+}
+
 .clue.is-new {
   animation: clue-in 0.55s var(--ease-pop) both;
 }
 
-.clue.is-new.is-mine {
-  animation:
-    clue-in 0.55s var(--ease-pop) both,
-    clue-glow 1.6s ease-out 0.2s;
+.clue.is-new.is-mine::after {
+  animation: ring-out 1.4s ease-out 0.25s;
+}
+
+.clue.is-new.is-blank .clue-pegs {
+  animation: pegs-shake 0.45s ease-in-out 0.45s;
+}
+
+.clue.is-hit .peg-green {
+  position: relative;
+  isolation: isolate;
+}
+
+.clue.is-hit .peg-green::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--green) 30%, transparent 70%);
+  opacity: 0;
+}
+
+.clue.is-new.is-hit .peg-green {
+  animation: peg-pop 0.5s var(--ease-pop) 0.35s both;
+}
+
+.clue.is-new.is-hit .peg-green::after {
+  animation: peg-halo 1.2s ease-out 0.4s;
 }
 
 @keyframes clue-in {
@@ -296,12 +387,55 @@
   }
 }
 
-@keyframes clue-glow {
+@keyframes ring-out {
   0% {
-    box-shadow: 0 0 0 0 rgb(245 184 61 / 0.8);
+    opacity: 0.9;
+    transform: scale(1);
   }
   100% {
-    box-shadow: 0 0 0 12px rgb(245 184 61 / 0);
+    opacity: 0;
+    transform: scale(1.04, 1.18);
+  }
+}
+
+@keyframes pegs-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes peg-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes peg-halo {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
   }
 }
 
@@ -465,16 +599,66 @@
   line-height: 1;
 }
 
-.dial-digit.is-bump {
-  animation: digit-bump 0.22s var(--ease-pop);
+/* The digit rolls in from the side the wheel turned (dials.ts sets the class per notch). */
+.dial-digit.is-roll-up {
+  animation: roll-up 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 
-@keyframes digit-bump {
+.dial-digit.is-roll-down {
+  animation: roll-down 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes roll-up {
   from {
-    transform: translateY(-6px) scale(1.15);
+    opacity: 0.2;
+    transform: translateY(0.55em) scaleY(0.7);
   }
   to {
+    opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes roll-down {
+  from {
+    opacity: 0.2;
+    transform: translateY(-0.55em) scaleY(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The drill just opened this dial. */
+.dial.is-drill-new .dial-window {
+  animation: drill-pop 0.55s var(--ease-pop);
+}
+
+.dial.is-drill-new .dial-lock {
+  animation: drill-tag 0.5s var(--ease-pop) 0.15s both;
+}
+
+@keyframes drill-pop {
+  0% {
+    transform: scale(0.86) rotate(-4deg);
+  }
+  60% {
+    transform: scale(1.08) rotate(2deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes drill-tag {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
   }
 }
 
@@ -923,6 +1107,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .clue.is-new,
+  .clue.is-new::after,
+  .clue.is-new .clue-pegs,
+  .clue.is-new .peg-green,
+  .clue.is-new .peg-green::after,
+  .dial-digit,
+  .dial.is-drill-new .dial-window,
+  .dial.is-drill-new .dial-lock,
+  .chip-drill.is-soon {
+    animation: none !important;
+  }
   .crack-overlay .crack-door {
     transform: rotateY(-76deg);
     animation: none !important;
@@ -1006,14 +1201,31 @@
   .vault-head {
     gap: var(--space-2);
   }
-  .vault-badge {
-    width: 40px;
-    height: 40px;
+  /* Logo + sound button must leave the spec line (~172 px) unwrapped at 320 px. */
+  .vault-logo {
+    height: 32px;
   }
+  .sound-toggle {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    font-size: var(--step-0);
+  }
+  .sound-toggle::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+  }
+  /* One title line next to the logo: the vault name ellipsizes (full text stays in the DOM). */
   .vault-title {
+    flex-wrap: nowrap;
     font-size: var(--step-2);
+    white-space: nowrap;
   }
   .vault-theme {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: var(--step-0);
   }
   .board-top {
@@ -1026,7 +1238,7 @@
     margin-top: 2px;
   }
   .board-scroll {
-    padding: 6px;
+    padding: 4px 6px;
   }
   .board {
     gap: 4px;

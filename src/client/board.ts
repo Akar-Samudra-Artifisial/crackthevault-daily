@@ -36,7 +36,10 @@ export const clueRow = (
   return h(
     'li',
     {
-      class: `clue${opts.mine ? ' is-mine' : ''}${opts.fresh ? ' is-new' : ''}`,
+      // is-blank (0 🟢 0 🟡) shakes and is-hit (any 🟢) glows when the clue arrives fresh.
+      class: `clue${opts.mine ? ' is-mine' : ''}${opts.fresh ? ' is-new' : ''}${
+        e.exact === 0 && e.misplaced === 0 ? ' is-blank' : ''
+      }${e.exact > 0 ? ' is-hit' : ''}`,
       'data-seq': e.seq,
     },
     code,

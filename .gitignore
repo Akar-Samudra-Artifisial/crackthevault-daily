@@ -4,3 +4,6 @@ dist
 .env
 *.log
 spike-evidence/**/*.png
+# Full-resolution Runware sources (>1 MB each); regenerate via tools/assets (manifest.json is tracked)
+assets-src/**/*.png
+!assets-src/brand/ref-door.png

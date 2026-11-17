@@ -1,21 +1,16 @@
-// Pure text helpers shared by splash and game.
-import { LEVEL_LADDER, type VaultSpec } from '../shared/vault';
+// Pure text helpers for the game (the splash only uses ./text and shared/splash-state).
+import type { VaultSpec } from '../shared/vault';
 
-/**
- * "Tier 9 of 9": the vault's rung on the escalation ladder (1-based). The weekday's
- * `difficulty` only describes how high the day starts, so later vaults show their tier instead.
- */
-export const tierText = (
-  spec: Pick<VaultSpec, 'dials' | 'maxDigit' | 'unique'>
-): string => {
-  const i = LEVEL_LADDER.findIndex(
-    (l) =>
-      l.dials === spec.dials &&
-      l.maxDigit === spec.maxDigit &&
-      l.unique === spec.unique
-  );
-  return i < 0 ? 'Tier ?' : `Tier ${i + 1} of ${LEVEL_LADDER.length}`;
-};
+// "Tier 9 of 9": the vault's rung on the ladder. The weekday's `difficulty` only says how high
+// the day starts, so later vaults show their tier instead.
+export { tierText } from '../shared/splash-state';
+export {
+  codesLeftText,
+  codesLeftWord,
+  fmtInt,
+  streakText,
+  triesText,
+} from './text';
 
 /** "1st", "2nd", "23rd", "11th". */
 export const ordinal = (n: number): string => {
@@ -27,29 +22,8 @@ export const ordinal = (n: number): string => {
   return `${n}${suffix}`;
 };
 
-export const streakText = (days: number): string => `🔥 ${days}-day streak`;
-
-export const fmtInt = (n: number): string => n.toLocaleString('en-US');
-
-/** "X codes left": exact, "≤ X" (stale upper bound) or "…" (being computed). */
-export const codesLeftText = (
-  codesLeft: number | null,
-  stale: boolean
-): string =>
-  codesLeft === null ? '…' : `${stale ? '≤ ' : ''}${fmtInt(codesLeft)}`;
-
-export const codesLeftWord = (codesLeft: number | null): string =>
-  codesLeft === 1 ? 'code left' : 'codes left';
-
 export const specText = (spec: Pick<VaultSpec, 'dials' | 'maxDigit'>) =>
   `${spec.dials} dials · digits 0–${spec.maxDigit}`;
-
-export const triesText = (left: number): string =>
-  left <= 0
-    ? 'No tries left'
-    : left === 1
-      ? '1 try left'
-      : `${left} tries left`;
 
 /** Server clock minus local clock (ms), from StateResponse.serverTime. */
 export const clockSkew = (serverTime: string): number => {

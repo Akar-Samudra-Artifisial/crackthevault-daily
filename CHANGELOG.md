@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- M4: "Crack the Vault" wordmark (`/brand/logo.webp`, lazy-loaded) in the game header in place
+  of the door badge; the splash stays image-free.
+- M4: synthesised sound effects in the game view (Web Audio, no audio files): dial tick,
+  code sent, clue chime (rising notes per 🟢, lower per 🟡, a falling pair for a blank clue),
+  quieter chime for other players' realtime clues, drill clunk and vault bolts + chime. Sound
+  starts only after the first tap/key, at low volume; the 🔊/🔇 header button remembers the
+  choice in `localStorage`. The feed splash stays silent.
+- M4: light animations (transform/opacity only, off with `prefers-reduced-motion`): digits
+  roll in the direction the dial turned, a freshly drilled dial pops, blank clues shake their
+  pegs, 🟢 pegs pop with a green halo, your own new clue gets a brass ring, the drill chip
+  pulses in the last minute and the splash vault door idles.
+- M4: judge-facing README (how to play, fair play, tech, development).
 - M1: Devvit Web scaffold (Vite, Hono, TypeScript project references, ESLint, CI workflow).
 - Vault rules in `src/shared/vault.ts`: code-breaking clues as counts only (🟢 right dial,
   🟡 other dial, never per dial; correct for duplicate digits), guess parsing, secret
@@ -21,6 +33,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   comment drops its marker and is retried from `/api/state` (max 3 attempts).
 - Leaderboard: all-time record kept in `v:{sub}:record` by the crack transaction (no scan of
   the per-day hash); shared part cached 15 s per subreddit, invalidated on a crack.
+
+### Changed
+
+- M4: the feed splash loads with its own light `/api/state` reader (still validated), so its
+  JS + CSS shrink from 10,357 B to about 8.4 KB gzip; the game view is unchanged.
+- M4: your own new clue highlights with a fading ring instead of an animated box shadow.
 
 ### Security
 

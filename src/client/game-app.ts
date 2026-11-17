@@ -34,7 +34,7 @@ import {
   triesText,
 } from './format';
 import { LeaderboardSheet } from './leaderboard';
-import { vaultDoor } from './vault-door';
+import { Sfx } from './sfx';
 
 export type RealtimeHandlers = {
   onMessage: (raw: unknown) => void;
@@ -94,6 +94,7 @@ type Ui = {
   error: HTMLElement;
   errorText: HTMLElement;
   retry: HTMLButtonElement;
+  sound: HTMLButtonElement;
 };
 
 const buildUi = (root: HTMLElement): Ui => {
@@ -150,6 +151,12 @@ const buildUi = (root: HTMLElement): Ui => {
       type: 'button',
       text: 'Retry',
     }),
+    // Toggle button: the name stays "Sound effects", aria-pressed says whether they're on.
+    sound: h('button', {
+      class: 'sound-toggle',
+      type: 'button',
+      'aria-label': 'Sound effects',
+    }),
   };
   ui.boardScroll.append(ui.board, ui.boardEmpty);
   ui.error.append(ui.errorText, ui.retry);
@@ -170,13 +177,24 @@ const buildUi = (root: HTMLElement): Ui => {
       h(
         'header',
         { class: 'vault-head' },
-        h('div', { class: 'vault-badge' }, vaultDoor()),
+        // Wordmark from public/brand (copied to dist/client by Vite); game view only, the
+        // splash stays raster-free. width/height reserve the box so nothing jumps on load.
+        h('img', {
+          class: 'vault-logo',
+          src: '/brand/logo.webp',
+          width: 320,
+          height: 135,
+          alt: 'Crack the Vault',
+          loading: 'lazy',
+          decoding: 'async',
+        }),
         h(
           'div',
           { class: 'vault-head-text' },
           h('h1', { class: 'vault-title' }, ui.vaultNumber, ui.theme),
           ui.spec
-        )
+        ),
+        ui.sound
       ),
       h('div', { class: 'chips' }, ui.drillChip, ui.deepestChip),
       ui.error,
@@ -221,6 +239,9 @@ export class VaultGame {
   private readonly dials: Dials;
   private readonly overlay: CrackOverlay;
   private readonly leaderboard: LeaderboardSheet;
+  private readonly sfx = new Sfx();
+  /** day:round and opened dials last rendered, so a newly drilled dial clunks once. */
+  private drillSeen = { key: '', open: 0 };
 
   private state: StateResponse | null = null;
   private seen = new Set<number>();
@@ -252,14 +273,24 @@ export class VaultGame {
   private pollTimer: number | undefined;
 
   private readonly onVisibility = () => {
-    if (document.visibilityState === 'visible') void this.refresh();
+    const visible = document.visibilityState === 'visible';
+    this.sfx.setVisible(visible);
+    if (visible) void this.refresh();
     this.updatePolling();
   };
 
   constructor(root: HTMLElement, backend: Backend) {
     this.backend = backend;
     this.ui = buildUi(root);
-    this.dials = new Dials(this.ui.dials, () => this.renderDock());
+    this.dials = new Dials(this.ui.dials, () => {
+      this.sfx.tick();
+      this.renderDock();
+    });
+    this.renderSound();
+    this.ui.sound.addEventListener('click', () => {
+      this.sfx.setMuted(!this.sfx.isMuted);
+      this.renderSound();
+    });
     this.overlay = new CrackOverlay(document.body);
     this.leaderboard = new LeaderboardSheet(document.body, () =>
       this.backend.fetchLeaderboard()
@@ -307,6 +338,7 @@ export class VaultGame {
     this.connected = false;
     this.pendingState = null;
     this.leaderboard.close();
+    this.sfx.dispose();
   }
 
   /* ---------------- Data ---------------- */
@@ -394,16 +426,18 @@ export class VaultGame {
     this.dials.setSpec(`${st.day}:${st.round}`, st.spec, active.drill.revealed);
   }
 
-  private addClue(clue: RealtimeClue) {
+  /** True when the clue is new and someone else's (it gets the quieter clue sound). */
+  private addClue(clue: RealtimeClue): boolean {
     const st = this.state;
-    if (!st) return;
+    if (!st) return false;
     // Own clue from another tab/device also uses one of this tab's tries.
     const { state: next, own } = applyRealtimeClue(st, clue, this.ownSeqs);
     this.ownSeqs = own;
-    if (next === st) return;
+    if (next === st) return false;
     this.state = next;
-    if (clue.username !== st.username)
-      this.ui.live.textContent = clueSentence(clue);
+    if (clue.username === st.username) return false;
+    this.ui.live.textContent = clueSentence(clue);
+    return true;
   }
 
   /* ---------------- Realtime ---------------- */
@@ -470,7 +504,8 @@ export class VaultGame {
       return;
     }
     if (ev.type === 'clue') {
-      this.addClue(ev.clue);
+      if (this.addClue(ev.clue))
+        this.sfx.clue(ev.clue.exact, ev.clue.misplaced, true);
       this.patchActive(ev.active);
       const cur = this.state;
       if (cur && ev.deepest) this.state = { ...cur, deepest: ev.deepest };
@@ -574,6 +609,7 @@ export class VaultGame {
       return;
     }
     const guess = this.dials.value();
+    this.sfx.submit();
     this.sending = true;
     this.renderDock();
     let res: GuessResponse;
@@ -608,6 +644,7 @@ export class VaultGame {
         `${r.guess.join(' ')} → 🟢 ${r.exact} right dial · 🟡 ${r.misplaced} other dial`
       );
       this.ui.live.textContent = `Your try ${r.guess.join(' ')}: ${r.exact} on the right dial, ${r.misplaced} on another dial.`;
+      this.sfx.clue(r.exact, r.misplaced, false);
     }
     this.applyState(res.state);
   }
@@ -638,6 +675,7 @@ export class VaultGame {
       return false;
     }
     if (next) this.pendingState = mergeState(this.pendingState, next).state;
+    this.sfx.open();
     this.overlay.open({ crack, mine, cracker }, () => {
       if (this.disposed) return;
       const pending = this.pendingState;
@@ -693,6 +731,20 @@ export class VaultGame {
     this.renderBoard(st);
     this.renderDock();
     this.tick();
+
+    const drillKey = `${st.day}:${st.round}`;
+    const open = st.drill.revealed.length;
+    if (drillKey === this.drillSeen.key && open > this.drillSeen.open)
+      this.sfx.clunk();
+    this.drillSeen = { key: drillKey, open };
+  }
+
+  private renderSound() {
+    const on = !this.sfx.isMuted;
+    this.ui.sound.setAttribute('aria-pressed', String(on));
+    this.ui.sound.replaceChildren(
+      h('span', { 'aria-hidden': 'true' }, on ? '🔊' : '🔇')
+    );
   }
 
   private renderBoard(st: StateResponse) {
@@ -773,6 +825,11 @@ export class VaultGame {
     const next = st.drill.nextDrillAt;
     this.ui.drillChip.hidden = false;
     this.ui.drillChip.classList.toggle('is-open', open > 0);
+    // Last minute before the next dial opens: the chip pulses (CSS; off with reduced motion).
+    this.ui.drillChip.classList.toggle(
+      'is-soon',
+      next !== null && next - now < 60_000
+    );
     this.ui.drillChip.textContent =
       next === null
         ? `🔩 Drill done · ${open} open`

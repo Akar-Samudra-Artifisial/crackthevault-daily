@@ -1,18 +1,13 @@
 // Inline (feed) view: vault door, today's vault, status, your tries, "Crack it".
 // No Devvit imports here so the local preview can mount it with mock data.
-import type { StateResponse } from '../shared/api';
+// Imports stay tiny on purpose (splash budget < 10 KB gzip): no shared/api or format.ts.
+import { tierText, type SplashState } from '../shared/splash-state';
 import { h } from './dom';
-import {
-  codesLeftText,
-  codesLeftWord,
-  streakText,
-  tierText,
-  triesText,
-} from './format';
+import { codesLeftText, codesLeftWord, streakText, triesText } from './text';
 import { vaultDoor } from './vault-door';
 
 export type SplashView = {
-  render: (state: StateResponse) => void;
+  render: (state: SplashState) => void;
   fail: () => void;
 };
 
@@ -55,7 +50,7 @@ export const mountSplash = (
     )
   );
 
-  const render = (st: StateResponse) => {
+  const render = (st: SplashState) => {
     kicker.textContent = `${st.spec.name} · ${tierText(st.spec)}`;
     title.textContent = `Vault #${st.round}`;
 
@@ -70,7 +65,7 @@ export const mountSplash = (
       ` ${codesLeftWord(st.codesLeft)} · ${clues} on the board`
     );
 
-    const last = st.cracks[st.cracks.length - 1];
+    const last = st.lastCrack;
     cracked.hidden = !last;
     if (last)
       cracked.textContent = `🔓 Vault #${last.round} cracked by u/${last.username}`;

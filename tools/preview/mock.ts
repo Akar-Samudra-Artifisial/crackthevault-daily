@@ -29,10 +29,12 @@ export type Scenario =
   | 'live'
   | 'loggedout'
   | 'stale'
-  | 'maxdials';
+  | 'maxdials'
+  | 'drillsoon';
 
 const SCENARIOS: readonly Scenario[] = [
   'maxdials',
+  'drillsoon',
   'board',
   'drill',
   'cracked',
@@ -125,10 +127,13 @@ export const createMock = (scenario: Scenario) => {
   }));
   let revealed: DialReveal[] =
     scenario === 'drill' ? [{ dial: 1, digit: secret[1] ?? 0 }] : [];
+  // drillsoon: the next dial opens 20 s after load (chip pulses under 1 min, then a clunk).
   let nextDrillAt: number | null =
     scenario === 'drill'
       ? Date.now() + 5 * HOUR + 47 * 60_000
-      : Date.now() + 3 * HOUR + 12 * 60_000;
+      : scenario === 'drillsoon'
+        ? Date.now() + 20_000
+        : Date.now() + 3 * HOUR + 12 * 60_000;
   let guessesUsed = scenario === 'limit' ? 3 : scenario === 'empty' ? 0 : 2;
   const username = scenario === 'loggedout' ? null : ME;
   let staleOnce = scenario === 'stale';
@@ -163,6 +168,19 @@ export const createMock = (scenario: Scenario) => {
   const codesLeft = () => remainingCodes(spec(), board, revealed);
 
   const state = (): StateResponse => {
+    // Like the server: a drill time that has passed opens the next closed dial lazily.
+    if (
+      nextDrillAt !== null &&
+      Date.now() >= nextDrillAt &&
+      revealed.length < spec().dials - 1
+    ) {
+      const dial = [2, 0, 4, 1, 3, 5].find(
+        (d) => d < spec().dials && !revealed.some((r) => r.dial === d)
+      );
+      if (dial !== undefined)
+        revealed = [...revealed, { dial, digit: secret[dial] ?? 0 }];
+      nextDrillAt = Date.now() + 6 * HOUR;
+    }
     const stale = staleOnce;
     staleOnce = false;
     const last = cracks[cracks.length - 1];

@@ -4,10 +4,14 @@ import '../../src/client/splash.css';
 import './preview.css';
 import { byId } from '../../src/client/dom';
 import { mountSplash } from '../../src/client/splash-view';
+import { parseSplashState } from '../../src/shared/splash-state';
 import { createMock, scenarioFromUrl } from './mock';
 
 const mock = createMock(scenarioFromUrl());
 const view = mountSplash(byId('app'), () =>
   mock.backend.toast('→ requestExpandedMode(game)')
 );
-view.render(mock.state());
+// Same path as production: JSON → the splash's light parser.
+const st = parseSplashState(JSON.parse(JSON.stringify(mock.state())));
+if (st) view.render(st);
+else view.fail();

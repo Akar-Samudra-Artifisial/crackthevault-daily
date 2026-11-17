@@ -1,0 +1,14 @@
+{
+  "name": "crack-the-vault-asset-tools",
+  "private": true,
+  "type": "module",
+  "description": "Offline brand-asset tooling (Runware generate + sharp post-process). Not part of the app build.",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "process": "node process-brand.mjs",
+    "contact-sheet": "node contact-sheet.mjs"
+  },
+  "devDependencies": {
+    "sharp": "0.35.5"
+  }
+}

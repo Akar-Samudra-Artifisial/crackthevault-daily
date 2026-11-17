@@ -21,8 +21,30 @@
   filter: drop-shadow(0 6px 0 var(--ink));
 }
 
+/* Idle: the door breathes a little and its wheel tries a turn now and then. */
+.splash-door > svg {
+  animation: splash-bob 3.2s ease-in-out infinite;
+}
+
 .splash-door .d-wheel {
   animation: splash-wiggle 3.2s ease-in-out infinite;
+}
+
+@keyframes splash-bob {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(-3px) scale(1.015);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-door > svg,
+  .splash-door .d-wheel {
+    animation: none !important;
+  }
 }
 
 @keyframes splash-wiggle {

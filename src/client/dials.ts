@@ -48,8 +48,14 @@ export class Dials {
     spec: { dials: number; maxDigit: number },
     revealed: readonly DialReveal[]
   ) {
+    const before = this.locked;
     this.locked = new Map(revealed.map((r) => [r.dial, r.digit]));
-    if (key !== this.key || spec.dials !== this.dials.length) {
+    const sameVault = key === this.key && spec.dials === this.dials.length;
+    // A dial the drill just opened (same vault) gets a one-off "clunk" pop.
+    if (sameVault)
+      for (const i of this.locked.keys())
+        if (!before.has(i)) this.replay(this.dials[i]?.root, 'is-drill-new');
+    if (!sameVault) {
       this.key = key;
       this.maxDigit = spec.maxDigit;
       this.values = Array.from({ length: spec.dials }, () => 0);
@@ -120,7 +126,8 @@ export class Dials {
     return !this.disabled && !this.locked.has(i);
   }
 
-  private set(i: number, value: number) {
+  /** `dir`: the way the wheel turned (1 up, -1 down); the new digit rolls in from that side. */
+  private set(i: number, value: number, dir: 1 | -1 = 1) {
     if (!this.canEdit(i)) return;
     const range = this.maxDigit + 1;
     const next = ((value % range) + range) % range;
@@ -129,14 +136,21 @@ export class Dials {
     this.sync();
     const d = this.dials[i];
     if (d) {
-      d.digit.classList.remove('is-bump');
-      requestAnimationFrame(() => d.digit.classList.add('is-bump'));
+      d.digit.classList.remove('is-roll-up', 'is-roll-down');
+      this.replay(d.digit, dir > 0 ? 'is-roll-up' : 'is-roll-down');
     }
     this.onChange();
   }
 
-  private step(i: number, delta: number) {
-    this.set(i, (this.values[i] ?? 0) + delta);
+  /** Restarts a one-off CSS animation class on the next frame. */
+  private replay(el: HTMLElement | undefined, cls: string) {
+    if (!el) return;
+    el.classList.remove(cls);
+    requestAnimationFrame(() => el.classList.add(cls));
+  }
+
+  private step(i: number, delta: 1 | -1) {
+    this.set(i, (this.values[i] ?? 0) + delta, delta);
   }
 
   private focusNext(i: number, count: number, dir: 1 | -1) {
@@ -153,12 +167,12 @@ export class Dials {
     else if (e.key === 'ArrowDown') this.step(i, -1);
     else if (e.key === 'ArrowRight') this.focusNext(i, count, 1);
     else if (e.key === 'ArrowLeft') this.focusNext(i, count, -1);
-    else if (e.key === 'Home') this.set(i, 0);
+    else if (e.key === 'Home') this.set(i, 0, -1);
     else if (e.key === 'End') this.set(i, this.maxDigit);
     else if (/^\d$/.test(e.key)) {
       const n = Number(e.key);
       if (n > this.maxDigit) return;
-      this.set(i, n);
+      this.set(i, n, n >= (this.values[i] ?? 0) ? 1 : -1);
       this.focusNext(i, count, 1);
     } else return;
     e.preventDefault();
@@ -178,7 +192,12 @@ export class Dials {
     win.addEventListener('pointermove', (e) => {
       if (!dragging) return;
       const steps = Math.trunc((startY - e.clientY) / DRAG_STEP_PX);
-      this.set(i, startValue + steps);
+      const prev = this.values[i] ?? 0;
+      const range = this.maxDigit + 1;
+      const target = (((startValue + steps) % range) + range) % range;
+      // Direction of this notch: forward around the wheel is "up".
+      const forward = (target - prev + range) % range <= range / 2;
+      this.set(i, startValue + steps, forward ? 1 : -1);
     });
     const end = () => {
       dragging = false;

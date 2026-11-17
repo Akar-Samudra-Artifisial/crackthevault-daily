@@ -1,0 +1,83 @@
+{
+  "banner": {
+    "model": "bytedance:seedream@5.5",
+    "prompt": "wide panoramic banner, inside a cozy dark chocolate brown bank vault room, a wall of riveted steel safe deposit boxes along the far left and far right ends, a small round steel vault door with a brass handle wheel standing slightly open at the right end with a warm golden glow and a neat stack of gold bars inside, a few scattered gold coins on the floor, the large center area is a calm plain dark brown wall with subtle brass trim lines, no people, no text, no letters, no numbers, clean flat cartoon game art, thick near-black outline, simple two-tone cel shading, palette of dark chocolate brown (#2b1a12), warm brass gold (#f5b83d), light brass (#ffd77a), cool steel grey (#a9b5c1) and cream (#fff4e0), crisp vector-like shapes, no gradients noise, no texture grain, Match the art style of the reference image.",
+    "size": {
+      "width": 2560,
+      "height": 512
+    },
+    "transparent": false,
+    "reference": "local-file",
+    "seed": 870590256,
+    "cost": 0.028,
+    "taskUUID": "3ea12869-6d71-48df-95a3-ba50bdbaa64f",
+    "imageUUID": "d69fbb8f-593f-47c3-9b4b-7373afd5944c",
+    "removeBackground": null,
+    "file": "assets-src/brand/banner.png",
+    "generatedAt": "2026-11-17T11:22:33.056Z"
+  },
+  "icon": {
+    "model": "bytedance:seedream@5.5",
+    "prompt": "app icon, square composition, a single round steel bank vault door seen straight on, filling most of the frame, thick steel rim with evenly spaced round bolts, a brass six-spoke handle wheel with round brass knobs in the center, two chunky brass hinges on the left side, a faint warm brass glow ring behind the door, plain dark chocolate brown background, bold and readable at small size, perfectly symmetrical, no text, no letters, no numbers, clean flat cartoon game art, thick near-black outline, simple two-tone cel shading, palette of dark chocolate brown (#2b1a12), warm brass gold (#f5b83d), light brass (#ffd77a), cool steel grey (#a9b5c1) and cream (#fff4e0), crisp vector-like shapes, no gradients noise, no texture grain, Match the art style of the reference image.",
+    "size": {
+      "width": 1024,
+      "height": 1024
+    },
+    "transparent": false,
+    "reference": "local-file",
+    "seed": 636917907,
+    "cost": 0.028,
+    "taskUUID": null,
+    "imageUUID": null,
+    "removeBackground": null,
+    "file": "assets-src/brand/icon.png",
+    "generatedAt": "2026-11-17T11:23:26.858Z",
+    "note": "first run (v1) chosen; task/image UUID lost when the v2 run overwrote this entry"
+  },
+  "logo": {
+    "model": "ideogram:4.5@0",
+    "prompt": "game logo wordmark in two lines, top line \"CRACK\", bottom line \"THE VAULT\" with a clear word space between THE and VAULT, all capital letters, chunky rounded bold cartoon letters in warm brass gold with light yellow highlights and a thick near-black outline, a single thin zigzag crack line running through the letter V, small round steel bolts as decoration on the left and right ends, large and filling most of the frame width, centered, isolated on a plain flat white background, no other text, clean flat cartoon game art, thick near-black outline, simple two-tone cel shading, palette of dark chocolate brown (#2b1a12), warm brass gold (#f5b83d), light brass (#ffd77a), cool steel grey (#a9b5c1) and cream (#fff4e0), crisp vector-like shapes, no gradients noise, no texture grain",
+    "size": {
+      "width": 2560,
+      "height": 1440
+    },
+    "transparent": true,
+    "reference": null,
+    "seed": 269077261,
+    "cost": 0.0606,
+    "taskUUID": "69f4a2e3-3c26-46bd-a8e3-2ff71f09a198",
+    "imageUUID": "58d5e76a-e8c5-484e-bc36-51f723b0b553",
+    "removeBackground": {
+      "model": "runware:112@5",
+      "taskUUID": "aea0a8ae-d722-4589-97d5-b4d3ea60cacc",
+      "cost": 0.0006
+    },
+    "file": "assets-src/brand/logo.png",
+    "generatedAt": "2026-11-17T11:23:26.887Z"
+  },
+  "icon-v2-rejected": {
+    "model": "bytedance:seedream@5.5",
+    "prompt": "app icon, square composition, a single round steel bank vault door seen straight on, filling most of the frame, thick steel rim with evenly spaced round bolts, a brass handle wheel with exactly six evenly spaced straight spokes (like an asterisk) each ending in a round brass knob, in the center, two chunky brass hinges on the left side, a faint warm brass glow ring behind the door, plain dark chocolate brown background, bold and readable at small size, perfectly symmetrical, no text, no letters, no numbers, clean flat cartoon game art, thick near-black outline, simple two-tone cel shading, palette of dark chocolate brown (#2b1a12), warm brass gold (#f5b83d), light brass (#ffd77a), cool steel grey (#a9b5c1) and cream (#fff4e0), crisp vector-like shapes, no gradients noise, no texture grain, Match the art style of the reference image.",
+    "size": {
+      "width": 1024,
+      "height": 1024
+    },
+    "transparent": false,
+    "reference": "local-file",
+    "seed": 952898394,
+    "cost": 0.028,
+    "taskUUID": "7985b427-6c38-4ac8-ade8-ac0146d8434d",
+    "imageUUID": "3f4f6b3e-5b55-46ba-b395-da3a97c90ea3",
+    "removeBackground": null,
+    "file": "assets-src/brand/icon-v2-rejected.png",
+    "generatedAt": "2026-11-17T11:23:26.858Z",
+    "note": "rejected: stray latch bar on the wheel, dark inner door"
+  },
+  "logo-v1-rejected": {
+    "model": "ideogram:4.5@0",
+    "seed": 802322690,
+    "cost": 0.0606,
+    "file": "assets-src/brand/logo-v1-rejected.raw.png",
+    "note": "rejected: rendered \"theVault\" without a word space"
+  }
+}
