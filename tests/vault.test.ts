@@ -88,13 +88,29 @@ test('later vaults of a day climb the ladder one rung each, capped at 6 dials 0â
   assert.equal(sizes.at(-1), 1_000_000);
 });
 
-test('specFor is deterministic and themed per weekday', () => {
+test('specFor is deterministic and keeps the weekday', () => {
   assert.deepEqual(specFor(WEEK.fri, 3), specFor(WEEK.fri, 3));
-  const names = new Set(Object.values(WEEK).map((d) => specFor(d, 1).name));
-  assert.equal(names.size, 7);
-  assert.equal(specFor('20261123', 1).name, specFor(WEEK.mon, 1).name);
-  assert.equal(specFor(WEEK.sat, 4).name, specFor(WEEK.sat, 1).name);
   assert.equal(specFor(WEEK.sat, 1).weekday, 6);
+});
+
+test('each vault is named after its ladder rung (unique per rung)', () => {
+  const names = LEVEL_LADDER.map((l) => l.name);
+  assert.equal(new Set(names).size, LEVEL_LADDER.length);
+  for (const day of Object.values(WEEK)) {
+    const first = specFor(day, 1);
+    const second = specFor(day, 2);
+    assert.notEqual(second.name, first.name, `${day}: vault #2 reuses #1's name`);
+    for (let round = 1; round <= 12; round++) {
+      const s = specFor(day, round);
+      const rung = LEVEL_LADDER.find(
+        (l) => l.dials === s.dials && l.maxDigit === s.maxDigit && l.unique === s.unique
+      );
+      assert.equal(s.name, rung?.name, `${day} #${round}`);
+    }
+  }
+  assert.equal(specFor(WEEK.tue, 1).name, 'Brass Strongbox');
+  assert.equal(specFor(WEEK.tue, 2).name, 'Iron Safe');
+  assert.equal(specFor(WEEK.sat, 2).name, 'Titanium Vault');
 });
 
 test('specFor rejects malformed or impossible days and rounds', () => {

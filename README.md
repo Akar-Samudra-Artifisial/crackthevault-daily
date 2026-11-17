@@ -110,17 +110,19 @@ jumps up the ladder, and every later vault climbs one more rung (capped at the t
 phone dial UI holds). Digits may repeat on every rung; the spec is a pure function
 `specFor(day, round)` in `src/shared/vault.ts`.
 
-| Rung | Dials | Digits | Codes     | Vault #2 on                                     |
-| ---- | ----- | ------ | --------- | ----------------------------------------------- |
-| 0    | 3     | 0–4    | 125       | (vault #1, every day)                           |
-| 1    | 3     | 0–5    | 216       | Mon Copper Lockbox, Tue Brass Strongbox (easy)  |
-| 2    | 4     | 0–5    | 1 296     | Wed Steel Safe, Thu Bank Vault (medium)         |
-| 3    | 4     | 0–7    | 4 096     | Fri Titanium Vault (hard)                       |
-| 4    | 4     | 0–9    | 10 000    | Sat Royal Treasury, Sun Dragon's Hoard (expert) |
-| 5    | 5     | 0–7    | 32 768    |                                                 |
-| 6    | 5     | 0–9    | 100 000   |                                                 |
-| 7    | 6     | 0–8    | 531 441   |                                                 |
-| 8    | 6     | 0–9    | 1 000 000 | (top, repeats)                                  |
+Each rung has its own vault name, so the name always tells how hard the open vault is.
+
+| Rung | Name             | Dials | Digits | Codes     | Vault #2 on                   |
+| ---- | ---------------- | ----- | ------ | --------- | ----------------------------- |
+| 0    | Brass Strongbox  | 3     | 0–4    | 125       | (vault #1, every day)         |
+| 1    | Iron Safe        | 3     | 0–5    | 216       | Mon, Tue (easy)               |
+| 2    | Steel Safe       | 4     | 0–5    | 1 296     | Wed, Thu (medium)             |
+| 3    | Bank Vault       | 4     | 0–7    | 4 096     | Fri (hard)                    |
+| 4    | Titanium Vault   | 4     | 0–9    | 10 000    | Sat, Sun (expert)             |
+| 5    | Royal Treasury   | 5     | 0–7    | 32 768    |                               |
+| 6    | Dragon's Hoard   | 5     | 0–9    | 100 000   |                               |
+| 7    | Diamond Reserve  | 6     | 0–8    | 531 441   |                               |
+| 8    | Obsidian Citadel | 6     | 0–9    | 1 000 000 | (top, repeats)                |
 
 ### The drill
 

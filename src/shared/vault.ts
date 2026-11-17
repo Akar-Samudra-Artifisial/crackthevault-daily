@@ -96,23 +96,22 @@ export type VaultLevel = Pick<VaultSpec, 'dials' | 'maxDigit' | 'unique'>;
  * Escalation ladder, strictly growing code space (125 → 1 000 000), capped at the top rung
  * (6 dials, 0–9: the most a phone UI holds). See `specFor`; tuned with `npm run sim`.
  */
-export const LEVEL_LADDER: readonly VaultLevel[] = [
-  { dials: 3, maxDigit: 4, unique: false }, //       125
-  { dials: 3, maxDigit: 5, unique: false }, //       216
-  { dials: 4, maxDigit: 5, unique: false }, //     1 296
-  { dials: 4, maxDigit: 7, unique: false }, //     4 096
-  { dials: 4, maxDigit: 9, unique: false }, //    10 000
-  { dials: 5, maxDigit: 7, unique: false }, //    32 768
-  { dials: 5, maxDigit: 9, unique: false }, //   100 000
-  { dials: 6, maxDigit: 8, unique: false }, //   531 441
-  { dials: 6, maxDigit: 9, unique: false }, // 1 000 000
+export const LEVEL_LADDER: readonly (VaultLevel & { name: string })[] = [
+  { name: 'Brass Strongbox', dials: 3, maxDigit: 4, unique: false }, //       125
+  { name: 'Iron Safe', dials: 3, maxDigit: 5, unique: false }, //             216
+  { name: 'Steel Safe', dials: 4, maxDigit: 5, unique: false }, //          1 296
+  { name: 'Bank Vault', dials: 4, maxDigit: 7, unique: false }, //          4 096
+  { name: 'Titanium Vault', dials: 4, maxDigit: 9, unique: false }, //     10 000
+  { name: 'Royal Treasury', dials: 5, maxDigit: 7, unique: false }, //     32 768
+  { name: "Dragon's Hoard", dials: 5, maxDigit: 9, unique: false }, //    100 000
+  { name: 'Diamond Reserve', dials: 6, maxDigit: 8, unique: false }, //   531 441
+  { name: 'Obsidian Citadel', dials: 6, maxDigit: 9, unique: false }, // 1 000 000
 ];
 
 /** Rung of vault #1 on every weekday: easy enough that a 10-player crowd cracks it. */
 export const FIRST_VAULT_RUNG = 0;
 
 type WeekdayRule = {
-  name: string;
   difficulty: Difficulty;
   /** LEVEL_LADDER index of vault #2 (easy 1 … expert 4); later vaults climb one rung each. */
   second: number;
@@ -120,13 +119,13 @@ type WeekdayRule = {
 
 /** Index = UTC weekday (0 = Sunday). */
 const WEEKDAY_RULES: readonly WeekdayRule[] = [
-  { name: "Dragon's Hoard", difficulty: 'expert', second: 4 },
-  { name: 'Copper Lockbox', difficulty: 'easy', second: 1 },
-  { name: 'Brass Strongbox', difficulty: 'easy', second: 1 },
-  { name: 'Steel Safe', difficulty: 'medium', second: 2 },
-  { name: 'Bank Vault', difficulty: 'medium', second: 2 },
-  { name: 'Titanium Vault', difficulty: 'hard', second: 3 },
-  { name: 'Royal Treasury', difficulty: 'expert', second: 4 },
+  { difficulty: 'expert', second: 4 },
+  { difficulty: 'easy', second: 1 },
+  { difficulty: 'easy', second: 1 },
+  { difficulty: 'medium', second: 2 },
+  { difficulty: 'medium', second: 2 },
+  { difficulty: 'hard', second: 3 },
+  { difficulty: 'expert', second: 4 },
 ];
 
 /** LEVEL_LADDER index of vault #`round` for a weekday rule (capped at the top rung). */
@@ -181,7 +180,8 @@ export const specFor = (day: string, round: number): VaultSpec => {
     day,
     weekday,
     round,
-    name: rule.name,
+    // The vault is named after its ladder rung, so a harder vault never reuses an easier name.
+    name: level.name,
     difficulty: rule.difficulty,
     dials: level.dials,
     maxDigit: level.maxDigit,
