@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "tsBuildInfoFile": "../dist/types/preview/tsconfig.tsbuildinfo",
+    "customConditions": ["browser"],
+    "rootDir": "..",
+    "strictPropertyInitialization": false
+  },
+  "include": [
+    "../tools/preview/**/*",
+    "../src/client/**/*",
+    "../src/shared/**/*"
+  ],
+  "exclude": []
+}

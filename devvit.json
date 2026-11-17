@@ -1,0 +1,56 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "crackthevault-daily",
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "inline": true,
+        "entry": "splash.html"
+      },
+      "game": {
+        "entry": "game.html"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "permissions": {
+    "redis": true,
+    "realtime": true,
+    "reddit": {
+      "enable": true
+    }
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Create today's vault",
+        "description": "Crack the Vault: create today's vault post now",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/post-create"
+      }
+    ]
+  },
+  "scheduler": {
+    "tasks": {
+      "daily-vault": {
+        "endpoint": "/internal/scheduler/daily-vault",
+        "cron": "0 0 * * *"
+      }
+    }
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install"
+  },
+  "dev": {
+    "subreddit": "crackthevault_dev"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  }
+}
