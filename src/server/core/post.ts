@@ -1,6 +1,7 @@
 import { context, reddit, redis } from '@devvit/web/server';
 import { isExecAborted } from '../../shared/tx';
-import { DAY_KEY_TTL_SECONDS, specFor } from '../../shared/vault';
+import { postTitle } from '../../shared/post-title';
+import { DAY_KEY_TTL_SECONDS } from '../../shared/vault';
 import { dayKey, modCacheKey, vaultKeys } from './keys';
 
 export type TimeInfo = {
@@ -119,12 +120,10 @@ export const ensureDailyPost = async (
     );
   }
 
-  const spec = specFor(t.dayKey, 1);
-  const date = `${t.dayKey.slice(0, 4)}-${t.dayKey.slice(4, 6)}-${t.dayKey.slice(6)}`;
   let postId: string;
   try {
     const post = await reddit.submitCustomPost({
-      title: `Crack the Vault — ${spec.name} (${date})`,
+      title: postTitle(t.dayKey),
     });
     postId = post.id;
   } catch (error) {

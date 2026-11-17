@@ -41,6 +41,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- New daily posts are titled "Crack the Vault — Daily Vault · Tue 17 Nov" (`postTitle` in
+  `src/shared/post-title.ts`: English weekday/month from the UTC day, no locale). Existing
+  posts keep their titles.
 - M4: the feed splash loads with its own light `/api/state` reader (still validated), so its
   JS + CSS shrink from 10,357 B to about 8.4 KB gzip; the game view is unchanged.
 - M4: your own new clue highlights with a fading ring instead of an animated box shadow.
@@ -132,8 +135,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Vault #2+ kept the day's weekday name (e.g. "Brass Strongbox · Tier 2 of 9"). Each ladder
   rung now has its own name (Brass Strongbox, Iron Safe, Steel Safe, Bank Vault, Titanium
   Vault, Royal Treasury, Dragon's Hoard, Diamond Reserve, Obsidian Citadel), used by the
-  splash, game header and crack comment. The daily post title uses vault #1's name, so it
-  is "Brass Strongbox" every day (the date tells days apart).
+  splash, game header and crack comment. The daily post title no longer uses a vault name
+  (see Changed: "Daily Vault" + date).
 - The clue board showed only one row in Reddit's Mobile and Desktop expanded view (the webview
   is only ~596 px tall). On screens ≤ 700 px tall the header, codes counter, clue rows and dials
   are slimmer, so the board shows at least 3 rows there; below 480 px the page scrolls and the
