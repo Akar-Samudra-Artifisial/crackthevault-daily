@@ -76,20 +76,21 @@ devvit, reddit, hono, redis, typescript, vite, web-audio-api, runware
 
 ## Try it out links
 
-- App: [TODO: Devvit app link, https://developers.reddit.com/apps/crackthevault-daily]
+- App: https://developers.reddit.com/apps/crackthevault-daily
 - Demo subreddit: https://www.reddit.com/r/crackthevault_dev
-- Demo post: [TODO: link to the demo post]
-- GitHub repo: https://github.com/Akar-Samudra-Artifisial/crackthevault-daily (private)
+- Demo post: https://www.reddit.com/r/crackthevault_dev/comments/1xygldv/crack_the_vault_brass_strongbox_20261117/
+- A new vault is posted daily at 00:00 UTC at r/crackthevault_dev; the newest post is today's vault.
+- GitHub repo: https://github.com/Akar-Samudra-Artifisial/crackthevault-daily
 
 ## Video demo link
 
-[TODO: YouTube link, video under 60 seconds]
+https://youtu.be/gKDegcfmW3E
 
 ## Additional info (judges only)
 
 - Reddit username: yhoyoex, Impossible-Solid2650
-- developers.reddit.com app page: [TODO: https://developers.reddit.com/apps/crackthevault-daily]
-- Link to test post: [TODO: demo post link]
+- developers.reddit.com app page: https://developers.reddit.com/apps/crackthevault-daily
+- Link to test post: https://www.reddit.com/r/crackthevault_dev/comments/1xygldv/crack_the_vault_brass_strongbox_20261117/ (a new vault is posted daily at 00:00 UTC; the newest post in r/crackthevault_dev is today's vault)
 - Ported game: No
 - Port link (required even when "No"): N/A (not a port; original game built for this hackathon)
 - Sponsor / Special Prizes: [TODO: decide, same options as submission 1]
@@ -113,12 +114,12 @@ Rules: record the real playtest (`npm run dev` on r/crackthevault_dev) with two 
 | 0:46–0:54 | Leaderboard: deepest vault today, top safecrackers, streak 🔥. | "Streaks and a leaderboard: how deep did we get today?" |
 | 0:54–0:58 | Title card, app icon, `r/crackthevault_dev`. | "Crack the Vault. Together." |
 
-Notes: no board game name anywhere in captions or voice-over. Do not show any unreleased secret code of an active vault. Check the final length is under 60 s before upload. `[TODO: upload to YouTube, paste the link above]`
+Notes: no board game name anywhere in captions or voice-over. Do not show any unreleased secret code of an active vault. Check the final length is under 60 s before upload. Uploaded: https://youtu.be/gKDegcfmW3E
 
 ## Demo post checklist
 
 - [ ] The post is made by the app (menu **Create today's vault** on r/crackthevault_dev, or the 00:00 UTC cron), not by hand.
-- [ ] The post is public and visible to logged-out judges, and its link is in this file ([TODO: demo post link]).
+- [ ] The post is public and visible to logged-out judges, and its link is in this file.
 - [ ] Vault #1 is not cracked yet when judges arrive, or a fresh vault is open. A second account has unused tries (3 per UTC day).
 - [ ] Both accounts are at least 3 days old.
 - [ ] The splash loads in the feed and **Crack it** opens the game.
