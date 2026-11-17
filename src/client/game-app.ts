@@ -8,10 +8,16 @@ import {
   type RealtimeClue,
   type StateResponse,
 } from '../shared/api';
-import { appendClue, mergeState } from '../shared/client-state';
+import {
+  applyRealtimeClue,
+  mergeState,
+  rememberOwnSeqs,
+  type OwnSeqs,
+} from '../shared/client-state';
+import type { LeaderboardResponse } from '../shared/safecracker';
 import type { CrackRecord } from '../shared/vault';
 import { clueRow, clueSentence } from './board';
-import { CrackOverlay } from './celebrate';
+import { CrackOverlay, type CrackMoment } from './celebrate';
 import { Dials } from './dials';
 import { h } from './dom';
 import {
@@ -23,8 +29,11 @@ import {
   fmtInt,
   msUntilUtcMidnight,
   specText,
+  streakText,
+  tierText,
   triesText,
 } from './format';
+import { LeaderboardSheet } from './leaderboard';
 import { vaultDoor } from './vault-door';
 
 export type RealtimeHandlers = {
@@ -36,6 +45,7 @@ export type RealtimeHandlers = {
 export type Backend = {
   fetchState: () => Promise<StateResponse>;
   postGuess: (state: StateResponse, guess: string) => Promise<GuessResponse>;
+  fetchLeaderboard: () => Promise<LeaderboardResponse>;
   connect: (channel: string, handlers: RealtimeHandlers) => void;
   disconnect: (channel: string) => void;
   toast: (text: string) => void;
@@ -56,7 +66,8 @@ const MAX_TIMEOUT_MS = 2_000_000_000;
 const REJECT_TEXT: Record<GuessRejectCode, string> = {
   limit: "You're out of tries for today — new tries at 00:00 UTC.",
   invalid: "That code doesn't fit this vault. Check the dials.",
-  account: 'Your account is a little too new to try codes. Keep watching the board!',
+  account:
+    'Your account is a little too new to try codes. Keep watching the board!',
   busy: 'The vault is busy — give it a second and try again.',
   stale: 'This vault just changed. Here is the latest — your try was not used.',
 };
@@ -66,7 +77,8 @@ type Ui = {
   theme: HTMLElement;
   spec: HTMLElement;
   drillChip: HTMLElement;
-  deepestChip: HTMLElement;
+  deepestChip: HTMLButtonElement;
+  streak: HTMLElement;
   codesLeft: HTMLElement;
   codesWord: HTMLElement;
   boardCount: HTMLElement;
@@ -90,33 +102,65 @@ const buildUi = (root: HTMLElement): Ui => {
     theme: h('span', { class: 'vault-theme' }),
     spec: h('p', { class: 'vault-spec', text: "Opening today's vault…" }),
     drillChip: h('p', { class: 'chip chip-drill', hidden: true }),
-    deepestChip: h('p', { class: 'chip chip-deepest', hidden: true }),
+    // The 🏆 chip is the leaderboard button.
+    deepestChip: h('button', {
+      class: 'chip chip-deepest chip-button',
+      type: 'button',
+      'aria-haspopup': 'dialog',
+      text: '🏆 Leaderboard',
+    }),
+    streak: h('p', { class: 'streak', hidden: true }),
     codesLeft: h('span', { class: 'codes-n', text: '…' }),
     codesWord: h('span', { class: 'codes-word', text: 'codes left' }),
     boardCount: h('span', { text: '0' }),
     board: h('ol', { class: 'board', 'aria-labelledby': 'board-title' }),
-    boardScroll: h('div', { class: 'board-scroll', tabindex: 0, 'aria-label': 'Clue board' }),
+    boardScroll: h('div', {
+      class: 'board-scroll',
+      tabindex: 0,
+      'aria-label': 'Clue board',
+    }),
     boardEmpty: h(
       'p',
       { class: 'board-empty', hidden: true },
       h('strong', {}, 'No clues yet.'),
       ' Every try lands here for everyone — the first one is the bravest.'
     ),
-    live: h('p', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' }),
-    dials: h('div', { class: 'dials', role: 'group', 'aria-label': 'Your code' }),
-    tryButton: h('button', { class: 'btn btn-primary try-button', type: 'button', text: 'Try code' }),
+    live: h('p', {
+      class: 'sr-only',
+      'aria-live': 'polite',
+      'aria-atomic': 'true',
+    }),
+    dials: h('div', {
+      class: 'dials',
+      role: 'group',
+      'aria-label': 'Your code',
+    }),
+    tryButton: h('button', {
+      class: 'btn btn-primary try-button',
+      type: 'button',
+      text: 'Try code',
+    }),
     tries: h('p', { class: 'tries', 'aria-live': 'polite' }),
     dockNote: h('p', { class: 'dock-note', hidden: true }),
     dock: h('section', { class: 'dock', 'aria-label': 'Try a code' }),
     error: h('div', { class: 'error-banner', role: 'alert', hidden: true }),
     errorText: h('span', {}),
-    retry: h('button', { class: 'btn btn-ghost', type: 'button', text: 'Retry' }),
+    retry: h('button', {
+      class: 'btn btn-ghost',
+      type: 'button',
+      text: 'Retry',
+    }),
   };
   ui.boardScroll.append(ui.board, ui.boardEmpty);
   ui.error.append(ui.errorText, ui.retry);
   ui.dock.append(
     ui.dials,
-    h('div', { class: 'dock-row' }, ui.tryButton, ui.tries),
+    h(
+      'div',
+      { class: 'dock-row' },
+      ui.tryButton,
+      h('div', { class: 'dock-status' }, ui.tries, ui.streak)
+    ),
     ui.dockNote
   );
   root.replaceChildren(
@@ -146,7 +190,12 @@ const buildUi = (root: HTMLElement): Ui => {
           h(
             'div',
             { class: 'board-meta' },
-            h('h2', { class: 'board-title', id: 'board-title' }, 'Clue board · ', ui.boardCount),
+            h(
+              'h2',
+              { class: 'board-title', id: 'board-title' },
+              'Clue board · ',
+              ui.boardCount
+            ),
             h(
               'p',
               { class: 'legend' },
@@ -171,6 +220,7 @@ export class VaultGame {
   private readonly ui: Ui;
   private readonly dials: Dials;
   private readonly overlay: CrackOverlay;
+  private readonly leaderboard: LeaderboardSheet;
 
   private state: StateResponse | null = null;
   private seen = new Set<number>();
@@ -184,6 +234,8 @@ export class VaultGame {
   private refetchQueued = false;
   private celebrated = new Set<string>();
   private pendingState: StateResponse | null = null;
+  /** Own clue seqs already counted as tries today (survive the 100-clue board cut). */
+  private ownSeqs: OwnSeqs | null = null;
   private channel: string | null = null;
   private connected = false;
   private disposed = false;
@@ -209,6 +261,12 @@ export class VaultGame {
     this.ui = buildUi(root);
     this.dials = new Dials(this.ui.dials, () => this.renderDock());
     this.overlay = new CrackOverlay(document.body);
+    this.leaderboard = new LeaderboardSheet(document.body, () =>
+      this.backend.fetchLeaderboard()
+    );
+    this.ui.deepestChip.addEventListener('click', () => {
+      this.leaderboard.open(this.ui.deepestChip);
+    });
     this.ui.tryButton.addEventListener('click', () => {
       void this.submit();
     });
@@ -248,6 +306,7 @@ export class VaultGame {
     this.channel = null;
     this.connected = false;
     this.pendingState = null;
+    this.leaderboard.close();
   }
 
   /* ---------------- Data ---------------- */
@@ -289,6 +348,8 @@ export class VaultGame {
       return;
     }
     const prev = this.state;
+    // Own clues of every snapshot are remembered before the board may cut them.
+    this.ownSeqs = rememberOwnSeqs(this.ownSeqs, incoming);
     const { kind, state: st } = mergeState(prev, incoming);
     if (kind === 'older') {
       this.state = st;
@@ -316,7 +377,12 @@ export class VaultGame {
 
   private patchActive(active: ActiveVault) {
     const st = this.state;
-    if (!st || active.round !== st.round || active.totalGuesses < st.totalGuesses) return;
+    if (
+      !st ||
+      active.round !== st.round ||
+      active.totalGuesses < st.totalGuesses
+    )
+      return;
     this.state = {
       ...st,
       totalGuesses: active.totalGuesses,
@@ -331,10 +397,13 @@ export class VaultGame {
   private addClue(clue: RealtimeClue) {
     const st = this.state;
     if (!st) return;
-    const next = appendClue(st, clue);
+    // Own clue from another tab/device also uses one of this tab's tries.
+    const { state: next, own } = applyRealtimeClue(st, clue, this.ownSeqs);
+    this.ownSeqs = own;
     if (next === st) return;
     this.state = next;
-    if (clue.username !== st.username) this.ui.live.textContent = clueSentence(clue);
+    if (clue.username !== st.username)
+      this.ui.live.textContent = clueSentence(clue);
   }
 
   /* ---------------- Realtime ---------------- */
@@ -388,8 +457,12 @@ export class VaultGame {
         this.addClue(ev.clue);
         this.render();
       }
-      this.celebrate(ev.crack, null);
+      this.celebrate(ev.crack, null, {
+        streak: ev.crackerStreak,
+        cracks: ev.crackerCracks,
+      });
       void this.refresh();
+      void this.leaderboard.refresh();
       return;
     }
     if (ev.active.round > st.round) {
@@ -409,7 +482,10 @@ export class VaultGame {
   }
 
   private updatePolling() {
-    const want = !this.disposed && !this.connected && document.visibilityState === 'visible';
+    const want =
+      !this.disposed &&
+      !this.connected &&
+      document.visibilityState === 'visible';
     if (want && this.pollTimer === undefined) {
       this.pollTimer = window.setInterval(() => {
         void this.refresh();
@@ -437,7 +513,9 @@ export class VaultGame {
       }
       // Past and not moving (clock skew, slow request): back off instead of a 1 s loop.
       const floor =
-        this.drillFires === 0 ? 1000 : Math.min(DRILL_RETRY_MS * this.drillFires, DRILL_RETRY_MAX_MS);
+        this.drillFires === 0
+          ? 1000
+          : Math.min(DRILL_RETRY_MS * this.drillFires, DRILL_RETRY_MAX_MS);
       window.clearTimeout(this.drillTimer);
       this.drillTimer = window.setTimeout(
         () => {
@@ -456,11 +534,14 @@ export class VaultGame {
         this.staleTries = 0;
       }
       if (this.staleTimer === undefined && this.staleTries < STALE_MAX_TRIES) {
-        this.staleTimer = window.setTimeout(() => {
-          this.staleTimer = undefined;
-          this.staleTries += 1;
-          void this.refresh();
-        }, STALE_REFETCH_MS * 2 ** this.staleTries);
+        this.staleTimer = window.setTimeout(
+          () => {
+            this.staleTimer = undefined;
+            this.staleTries += 1;
+            void this.refresh();
+          },
+          STALE_REFETCH_MS * 2 ** this.staleTries
+        );
       }
     } else {
       window.clearTimeout(this.staleTimer);
@@ -480,7 +561,14 @@ export class VaultGame {
 
   private async submit() {
     const st = this.state;
-    if (!st || this.sending || this.overlay.isOpen || !st.username || st.guessesLeft <= 0) return;
+    if (
+      !st ||
+      this.sending ||
+      this.overlay.isOpen ||
+      !st.username ||
+      st.guessesLeft <= 0
+    )
+      return;
     if (st.spec.unique && this.dials.hasRepeats()) {
       this.backend.toast('Each digit can be used only once in this vault.');
       return;
@@ -493,7 +581,9 @@ export class VaultGame {
       res = await this.backend.postGuess(st, guess.join(''));
     } catch (error) {
       console.error('[game] /api/guess failed:', error);
-      this.backend.toast("Couldn't send your code — check your connection and try again.");
+      this.backend.toast(
+        "Couldn't send your code — check your connection and try again."
+      );
       this.sending = false;
       this.renderDock();
       // The try may have landed: refetch so tries left and the board are not stale.
@@ -502,14 +592,17 @@ export class VaultGame {
     }
     this.sending = false;
     if (res.status === 'rejected') {
-      this.backend.toast(res.code === 'invalid' ? res.message : REJECT_TEXT[res.code]);
+      this.backend.toast(
+        res.code === 'invalid' ? res.message : REJECT_TEXT[res.code]
+      );
       this.applyState(res.state);
       return;
     }
     const r = res.result;
     if (r.cracked) {
       const crack = res.state.cracks.find((c) => c.round === r.round);
-      if (crack && this.celebrate(crack, res.state)) return;
+      const mine = { streak: res.state.streak, cracks: null };
+      if (crack && this.celebrate(crack, res.state, mine)) return;
     } else {
       this.backend.toast(
         `${r.guess.join(' ')} → 🟢 ${r.exact} right dial · 🟡 ${r.misplaced} other dial`
@@ -522,16 +615,30 @@ export class VaultGame {
   /**
    * Shows the open-vault moment once per (day, round). False when already celebrated. It stays
    * open until the player closes it (button or Escape), so focus and screen readers are never cut
-   * off mid-announcement; snapshots that land meanwhile are merged into pendingState.
+   * off mid-announcement; snapshots that land meanwhile are merged into pendingState. While the
+   * leaderboard is open the player is already looking at the cracks: a toast instead.
    */
-  private celebrate(crack: CrackRecord, next: StateResponse | null): boolean {
+  private celebrate(
+    crack: CrackRecord,
+    next: StateResponse | null,
+    cracker: CrackMoment['cracker'] = null
+  ): boolean {
     const day = next?.day ?? this.state?.day ?? '';
     const key = `${day}:${crack.round}`;
     if (this.celebrated.has(key)) return false;
     this.celebrated.add(key);
-    if (next) this.pendingState = mergeState(this.pendingState, next).state;
     const me = next?.username ?? this.state?.username ?? null;
-    this.overlay.open({ crack, mine: me !== null && me === crack.username }, () => {
+    const mine = me !== null && me === crack.username;
+    if (this.leaderboard.isOpen) {
+      this.backend.toast(
+        mine
+          ? `🔓 You cracked Vault #${crack.round}!`
+          : `🔓 u/${crack.username} cracked Vault #${crack.round}!`
+      );
+      return false;
+    }
+    if (next) this.pendingState = mergeState(this.pendingState, next).state;
+    this.overlay.open({ crack, mine, cracker }, () => {
       if (this.disposed) return;
       const pending = this.pendingState;
       this.pendingState = null;
@@ -549,22 +656,39 @@ export class VaultGame {
     if (!st) return;
     this.ui.vaultNumber.textContent = `Vault #${st.round}`;
     this.ui.theme.textContent = st.spec.name;
-    this.ui.spec.textContent = `${specText(st.spec)}${st.spec.unique ? ' · no repeats' : ''} · ${st.spec.difficulty}`;
+    this.ui.spec.textContent = `${specText(st.spec)}${st.spec.unique ? ' · no repeats' : ''} · ${tierText(st.spec)}`;
 
     const deepest = st.deepest;
-    this.ui.deepestChip.hidden = false;
-    this.ui.deepestChip.textContent = deepest
-      ? `🏆 Deepest #${deepest.round} · u/${deepest.username}`
-      : '🏆 None cracked yet';
-    this.ui.deepestChip.title = deepest
-      ? `Deepest vault cracked today: #${deepest.round} by u/${deepest.username}`
-      : 'No vault cracked yet today';
+    // Accessible name keeps the visible text (WCAG 2.5.3) behind a hidden "Leaderboard:".
+    this.ui.deepestChip.replaceChildren(
+      h('span', { class: 'sr-only' }, deepest ? 'Leaderboard: ' : ''),
+      h(
+        'span',
+        { class: 'chip-label' },
+        deepest
+          ? `🏆 Deepest #${deepest.round} · u/${deepest.username}`
+          : '🏆 Leaderboard'
+      ),
+      h('span', { class: 'chip-caret', 'aria-hidden': 'true' }, '›')
+    );
 
-    this.ui.codesLeft.textContent = codesLeftText(st.codesLeft, st.codesLeftStale);
+    this.ui.streak.hidden = !st.username || st.streak <= 0;
+    this.ui.streak.textContent = streakText(st.streak);
+
+    this.ui.codesLeft.textContent = codesLeftText(
+      st.codesLeft,
+      st.codesLeftStale
+    );
     this.ui.codesWord.textContent =
-      st.codesLeft === 1 && !st.codesLeftStale ? 'code left — crack it!' : codesLeftWord(st.codesLeft);
-    this.ui.codesLeft.classList.toggle('is-pending', st.codesLeft === null || st.codesLeftStale);
-    this.ui.boardCount.textContent = st.boardTotal === 1 ? '1 try' : `${fmtInt(st.boardTotal)} tries`;
+      st.codesLeft === 1 && !st.codesLeftStale
+        ? 'code left — crack it!'
+        : codesLeftWord(st.codesLeft);
+    this.ui.codesLeft.classList.toggle(
+      'is-pending',
+      st.codesLeft === null || st.codesLeftStale
+    );
+    this.ui.boardCount.textContent =
+      st.boardTotal === 1 ? '1 try' : `${fmtInt(st.boardTotal)} tries`;
 
     this.renderBoard(st);
     this.renderDock();
@@ -573,7 +697,8 @@ export class VaultGame {
 
   private renderBoard(st: StateResponse) {
     const scroller = this.ui.boardScroll;
-    const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
+    const nearBottom =
+      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
     // First paint of a vault (load, new vault, new day) shows its clues without animation; every
     // clue after that — including the very first clue of an empty vault — animates in.
     const vaultKey = `${st.day}:${st.round}`;
@@ -598,7 +723,11 @@ export class VaultGame {
     this.ui.boardEmpty.hidden = st.board.length > 0;
     if (st.boardTotal > st.board.length) {
       this.ui.board.prepend(
-        h('li', { class: 'board-trim' }, `${fmtInt(st.boardTotal - st.board.length)} older clues not shown`)
+        h(
+          'li',
+          { class: 'board-trim' },
+          `${fmtInt(st.boardTotal - st.board.length)} older clues not shown`
+        )
       );
     }
     if (firstPaint || nearBottom)
@@ -620,12 +749,19 @@ export class VaultGame {
     this.dials.setDisabled(blocked || this.sending);
     ui.dock.classList.toggle('is-blocked', blocked);
     ui.tryButton.disabled = blocked || this.sending;
-    ui.tryButton.textContent = this.sending ? 'Trying…' : out ? 'Out of tries' : 'Try code';
-    ui.tries.textContent = loggedOut ? 'Log in to play' : triesText(st.guessesLeft);
+    ui.tryButton.textContent = this.sending
+      ? 'Trying…'
+      : out
+        ? 'Out of tries'
+        : 'Try code';
+    ui.tries.textContent = loggedOut
+      ? 'Log in to play'
+      : triesText(st.guessesLeft);
     ui.tries.classList.toggle('is-last', st.guessesLeft === 1);
     ui.dockNote.hidden = !blocked;
     if (loggedOut)
-      ui.dockNote.textContent = 'Log in to Reddit to try codes. The board is live — watch the crew work.';
+      ui.dockNote.textContent =
+        'Log in to Reddit to try codes. The board is live — watch the crew work.';
   }
 
   /** Once a second: drill countdown and the "new tries" countdown. */

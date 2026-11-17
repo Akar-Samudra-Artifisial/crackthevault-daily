@@ -6,11 +6,12 @@ import {
 import type { JsonValue } from '@devvit/web/shared';
 import { byId } from './dom';
 import { VaultGame } from './game-app';
-import { fetchState, postGuess } from './state';
+import { fetchLeaderboard, fetchState, postGuess } from './state';
 
 const game = new VaultGame(byId('app'), {
   fetchState,
   postGuess,
+  fetchLeaderboard,
   connect: (channel, handlers) => {
     connectRealtime<JsonValue>({
       channel,

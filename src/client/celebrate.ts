@@ -2,13 +2,17 @@
 // CSS drives the timeline (game.css); prefers-reduced-motion shows the open vault at once.
 import type { CrackRecord } from '../shared/vault';
 import { h } from './dom';
+import { ordinal, streakText } from './format';
 import { vaultDoor } from './vault-door';
 
 const CONFETTI = 46;
 const CONFETTI_COLORS = ['brass', 'red', 'green', 'yellow', 'cream'];
 
 /** CSS custom properties through CSSOM (not a style attribute, which a strict CSP may block). */
-const withVars = <T extends HTMLElement>(node: T, vars: Record<string, string>): T => {
+const withVars = <T extends HTMLElement>(
+  node: T,
+  vars: Record<string, string>
+): T => {
   for (const [k, v] of Object.entries(vars)) node.style.setProperty(k, v);
   return node;
 };
@@ -16,6 +20,8 @@ const withVars = <T extends HTMLElement>(node: T, vars: Record<string, string>):
 export type CrackMoment = {
   crack: CrackRecord;
   mine: boolean;
+  /** Cracker's streak and all-time cracks here (from the `cracked` event); null when unknown. */
+  cracker: { streak: number; cracks: number | null } | null;
 };
 
 export class CrackOverlay {
@@ -24,6 +30,8 @@ export class CrackOverlay {
   private readonly title: HTMLElement;
   private readonly code: HTMLElement;
   private readonly meta: HTMLElement;
+  private readonly flair: HTMLElement;
+  private readonly stats: HTMLElement;
   private readonly next: HTMLButtonElement;
   private readonly confetti: HTMLElement;
   private onClose: () => void = () => {};
@@ -34,7 +42,12 @@ export class CrackOverlay {
     this.title = h('h2', { class: 'crack-title', id: 'crack-title' });
     this.code = h('div', { class: 'crack-code' });
     this.meta = h('p', { class: 'crack-meta' });
-    this.next = h('button', { class: 'btn btn-primary btn-xl crack-next', type: 'button' });
+    this.flair = h('p', { class: 'crack-flair' });
+    this.stats = h('p', { class: 'crack-stats', hidden: true });
+    this.next = h('button', {
+      class: 'btn btn-primary btn-xl crack-next',
+      type: 'button',
+    });
     this.confetti = h('div', { class: 'confetti', 'aria-hidden': 'true' });
     this.next.addEventListener('click', () => this.close());
 
@@ -73,6 +86,8 @@ export class CrackOverlay {
         this.title,
         this.code,
         this.meta,
+        this.flair,
+        this.stats,
         this.next
       )
     );
@@ -91,22 +106,38 @@ export class CrackOverlay {
   }
 
   open(moment: CrackMoment, onClose: () => void) {
-    const { crack, mine } = moment;
+    const { crack, mine, cracker } = moment;
     this.onClose = onClose;
     this.returnFocus =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    this.kicker.textContent =
-      crack.round === 1
-        ? '★ Safecracker of the Day ★'
-        : `★ Deepest vault today: #${crack.round} ★`;
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    // Every crack is today's deepest (vaults open in order). A title only: the Reddit flair
+    // is set best effort by the server and may be missing or kept by a moderator.
+    this.kicker.textContent = `★ Deepest vault today: #${crack.round} ★`;
+    this.flair.replaceChildren(
+      mine ? "You are today's " : `u/${crack.username} is today's `,
+      h('strong', {}, 'Safecracker 🔓')
+    );
+    const stats = [
+      cracker && cracker.streak > 0 ? streakText(cracker.streak) : null,
+      cracker?.cracks ? `${ordinal(cracker.cracks)} vault cracked here` : null,
+    ].filter((t) => t !== null);
+    this.stats.hidden = stats.length === 0;
+    this.stats.textContent = stats.join(' · ');
     this.title.textContent = mine
       ? `You cracked Vault #${crack.round}!`
       : `u/${crack.username} cracked Vault #${crack.round}!`;
-    this.code.setAttribute('aria-label', `The code was ${crack.code.join(' ')}`);
+    this.code.setAttribute(
+      'aria-label',
+      `The code was ${crack.code.join(' ')}`
+    );
     this.code.setAttribute('role', 'img');
     this.code.replaceChildren(
       ...crack.code.map((d, i) =>
-        withVars(h('span', { class: 'crack-digit' }, String(d)), { '--i': String(i) })
+        withVars(h('span', { class: 'crack-digit' }, String(d)), {
+          '--i': String(i),
+        })
       )
     );
     this.meta.textContent =
@@ -123,7 +154,9 @@ export class CrackOverlay {
         const dur = (2.2 + Math.random() * 1.6).toFixed(2);
         const spin = Math.round(360 + Math.random() * 720);
         return withVars(
-          h('span', { class: `bit bit-${color}${i % 3 === 0 ? ' is-round' : ''}` }),
+          h('span', {
+            class: `bit bit-${color}${i % 3 === 0 ? ' is-round' : ''}`,
+          }),
           {
             '--x': `${x}%`,
             '--drift': `${drift}px`,

@@ -1,11 +1,13 @@
 import {
   parseErrorResponse,
   parseGuessResponse,
+  parseLeaderboardResponse,
   parseStateResponse,
   type GuessRequest,
   type GuessResponse,
   type StateResponse,
 } from '../shared/api';
+import type { LeaderboardResponse } from '../shared/safecracker';
 
 /** GET /api/state, validated with the shared parser. */
 export const fetchState = async (): Promise<StateResponse> => {
@@ -16,6 +18,20 @@ export const fetchState = async (): Promise<StateResponse> => {
   const error = parseErrorResponse(body);
   throw new Error(
     error ? error.message : `unexpected /api/state response (${res.status})`
+  );
+};
+
+/** GET /api/leaderboard, validated with the shared parser. */
+export const fetchLeaderboard = async (): Promise<LeaderboardResponse> => {
+  const res = await fetch('/api/leaderboard');
+  const body: unknown = await res.json();
+  const board = parseLeaderboardResponse(body);
+  if (board) return board;
+  const error = parseErrorResponse(body);
+  throw new Error(
+    error
+      ? error.message
+      : `unexpected /api/leaderboard response (${res.status})`
   );
 };
 

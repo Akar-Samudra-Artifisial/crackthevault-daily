@@ -11,3 +11,7 @@ Scenarios (`?s=`): `board` (8 clues), `drill` (1 dial open), `cracked` (crack ev
 `limit` (no tries left), `empty` (vault #1, no clues), `live` (a clue every 2.5 s), `loggedout`,
 `stale` (codes left "≤ X", exact after ~2 s), `maxdials` (vault #9: 6 dials 0–9, the widest
 vault — check it at 320 px). Splash: `/splash.html?s=…`.
+
+Leaderboard sheet (🏆 chip, `?lb=`): `full` (top 10, today's cracks, you 14th), `top` (you 8th, row highlighted), `empty` (nothing
+cracked yet; default for `s=empty`), `error` (fetch fails → retry). Example:
+`/game.html?s=board&lb=error`.

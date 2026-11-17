@@ -1,5 +1,33 @@
 // Pure text helpers shared by splash and game.
-import type { VaultSpec } from '../shared/vault';
+import { LEVEL_LADDER, type VaultSpec } from '../shared/vault';
+
+/**
+ * "Tier 9 of 9": the vault's rung on the escalation ladder (1-based). The weekday's
+ * `difficulty` only describes how high the day starts, so later vaults show their tier instead.
+ */
+export const tierText = (
+  spec: Pick<VaultSpec, 'dials' | 'maxDigit' | 'unique'>
+): string => {
+  const i = LEVEL_LADDER.findIndex(
+    (l) =>
+      l.dials === spec.dials &&
+      l.maxDigit === spec.maxDigit &&
+      l.unique === spec.unique
+  );
+  return i < 0 ? 'Tier ?' : `Tier ${i + 1} of ${LEVEL_LADDER.length}`;
+};
+
+/** "1st", "2nd", "23rd", "11th". */
+export const ordinal = (n: number): string => {
+  const tens = n % 100;
+  const suffix =
+    tens >= 11 && tens <= 13
+      ? 'th'
+      : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+  return `${n}${suffix}`;
+};
+
+export const streakText = (days: number): string => `🔥 ${days}-day streak`;
 
 export const fmtInt = (n: number): string => n.toLocaleString('en-US');
 
@@ -17,7 +45,11 @@ export const specText = (spec: Pick<VaultSpec, 'dials' | 'maxDigit'>) =>
   `${spec.dials} dials · digits 0–${spec.maxDigit}`;
 
 export const triesText = (left: number): string =>
-  left <= 0 ? 'No tries left' : left === 1 ? '1 try left' : `${left} tries left`;
+  left <= 0
+    ? 'No tries left'
+    : left === 1
+      ? '1 try left'
+      : `${left} tries left`;
 
 /** Server clock minus local clock (ms), from StateResponse.serverTime. */
 export const clockSkew = (serverTime: string): number => {

@@ -39,6 +39,14 @@ from the round start and the clock (`src/shared/drill.ts`), never written step b
 concurrent requests agree and no cron is needed. `revealDials` is the only place an active
 digit becomes public; players still enter all dials (the UI can pre-fill opened ones).
 
+**Safecrackers.** Each crack earns the cracker the "Safecracker of the Day 🔓" user flair
+(moved from the previous holder, only if they still wear it) and an app comment on the day's
+post: "u/X cracked vault #N (<name>) in K guesses 🔓" with the cracked code. Both run after
+the guess is committed, best effort, once per (day, round) (`src/server/core/rewards.ts`).
+Every committed guess extends the player's **streak** (consecutive UTC days with a guess).
+`GET /api/leaderboard` shows today's deepest vault, the subreddit's all-time record, today's
+crackers, the top 10 safecrackers all-time and your own cracks/rank/streak.
+
 ## Development
 
 Requires Node ≥ 24 (`.nvmrc`).

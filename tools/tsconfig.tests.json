@@ -7,6 +7,11 @@
     "types": ["node"],
     "rootDir": ".."
   },
-  "include": ["../tests/**/*", "../tools/sim/**/*", "../src/shared/**/*"],
+  "include": [
+    "../tests/**/*",
+    "../tools/sim/**/*",
+    "../src/shared/**/*",
+    "../src/server/core/keys.ts"
+  ],
   "exclude": []
 }

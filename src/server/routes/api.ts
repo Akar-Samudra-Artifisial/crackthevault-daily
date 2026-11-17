@@ -15,6 +15,9 @@ import { dayKey } from '../core/keys';
 import { guessEvent, vaultChannel } from '../../shared/realtime';
 import { announceDrill, publishEvent } from '../core/realtime';
 import { loadVaultState, submitGuess } from '../core/vault';
+import { loadLeaderboard } from '../core/leaderboard';
+import { retryFailedRewards, rewardCrack } from '../core/rewards';
+import type { LeaderboardResponse } from '../../shared/safecracker';
 
 export const api = new Hono();
 
@@ -75,6 +78,7 @@ const buildState = async (
     guessesUsed: s.guessesUsed,
     guessLimit: s.guessLimit,
     guessesLeft: s.guessesLeft,
+    streak: s.streak,
     serverTime: new Date().toISOString(),
   };
   await announceDrill(context.subredditId, state);
@@ -84,9 +88,35 @@ const buildState = async (
 api.get('/state', async (c) => {
   try {
     const username = (await reddit.getCurrentUsername()) ?? null;
-    return c.json<StateResponse>(await buildState(dayKey(), username));
+    const day = dayKey();
+    const state = await buildState(day, username);
+    // Failed flair/comment rewards of today's cracks get another try (logs, never throws).
+    if (state.round > 1)
+      await retryFailedRewards({
+        subredditId: context.subredditId,
+        subredditName: context.subredditName,
+        day,
+        round: state.round,
+      });
+    return c.json<StateResponse>(state);
   } catch (error) {
     return serverError(c, 'GET /api/state', error);
+  }
+});
+
+api.get('/leaderboard', async (c) => {
+  try {
+    const username = (await reddit.getCurrentUsername()) ?? null;
+    return c.json<LeaderboardResponse>(
+      await loadLeaderboard({
+        subredditId: context.subredditId,
+        day: dayKey(),
+        userId: context.userId,
+        username,
+      })
+    );
+  } catch (error) {
+    return serverError(c, 'GET /api/leaderboard', error);
   }
 });
 
@@ -163,8 +193,17 @@ api.post('/guess', async (c) => {
         entry: outcome.entry,
         crack: outcome.crack,
         nextSpec: outcome.crack ? specFor(day, outcome.crack.round + 1) : null,
+        cracker: outcome.cracker,
       })
     );
+    // Flair + app comment for the crack (closed round only). Logs and swallows failures.
+    if (outcome.crack)
+      await rewardCrack({
+        subredditId,
+        subredditName: context.subredditName,
+        day,
+        crack: outcome.crack,
+      });
     return c.json<GuessResponse>({
       status: 'ok',
       result: outcome.result,

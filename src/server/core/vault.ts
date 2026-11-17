@@ -53,6 +53,8 @@ import {
   type CodesLeftVersion,
   type CodesLeftView,
 } from '../../shared/codes-left';
+import { nextStreak, parseStreak, visibleStreak } from '../../shared/streak';
+import { deepestOf } from '../../shared/safecracker';
 import { setNx } from './post';
 import { subKeys, vaultKeys } from './keys';
 
@@ -198,6 +200,8 @@ export type PublicVaultState = {
   guessesUsed: number;
   guessLimit: number;
   guessesLeft: number;
+  /** Visible guess streak of the user (0 when logged out). */
+  streak: number;
 };
 
 /**
@@ -273,10 +277,13 @@ export const loadVaultState = async (
   userId: string | undefined
 ): Promise<PublicVaultState> => {
   const keys = vaultKeys(subredditId, day);
-  const [meta, usedRaw, deepest] = await Promise.all([
+  const [meta, usedRaw, deepest, streakRaw] = await Promise.all([
     loadMeta(keys),
     userId ? redis.hGet(keys.guesses, userId) : Promise.resolve(undefined),
     loadDeepest(subredditId, day),
+    userId
+      ? redis.hGet(subKeys(subredditId).streak, userId)
+      : Promise.resolve(undefined),
   ]);
   const spec = specFor(day, meta.round);
   const boardTotal = meta.guessCount - meta.roundStartSeq;
@@ -332,6 +339,7 @@ export const loadVaultState = async (
     guessesUsed: used,
     guessLimit: GUESSES_PER_DAY,
     guessesLeft: guessesLeft(used),
+    streak: visibleStreak(parseStreak(streakRaw), day),
   };
 };
 
@@ -342,15 +350,21 @@ export type SubmitGuessResult =
       /** Committed board entry and, on a crack, the closed round (public; for realtime). */
       entry: BoardEntry;
       crack: CrackRecord | null;
+      /** Guesser's streak and all-time cracks after this guess (public leaderboard data). */
+      cracker: { streak: number; cracks: number };
     }
   | { status: 'rejected'; code: GuessRejectCode; message: string };
 
 type CommitPlan = Extract<GuessPlan, { ok: true }>;
 
-const okResult = (plan: CommitPlan): SubmitGuessResult => ({
+const okResult = (
+  plan: CommitPlan,
+  cracker: { streak: number; cracks: number }
+): SubmitGuessResult => ({
   status: 'ok',
   entry: plan.entry,
   crack: plan.crack,
+  cracker,
   result: {
     guess: plan.entry.guess,
     exact: plan.feedback.exact,
@@ -403,18 +417,36 @@ export const submitGuess = async (input: {
 }): Promise<SubmitGuessResult> => {
   const { subredditId, day, userId, username, digits } = input;
   const keys = vaultKeys(subredditId, day);
+  const sub = subKeys(subredditId);
   const id = randomUUID();
   for (let attempt = 1; attempt <= GUESS_TX_ATTEMPTS; attempt++) {
     if (attempt > 1) await sleep(retryDelayMs(attempt - 1, Math.random));
-    const tx = await redis.watch(keys.meta, keys.guesses);
+    // `record` is watched too: it is compared and rewritten only in a crack transaction.
+    const tx = await redis.watch(keys.meta, keys.guesses, sub.record);
     let meta: VaultMeta;
     let plan: GuessPlan;
+    let streakJson: string;
+    let cracker: { streak: number; cracks: number };
+    let record: DeepestRecord | null;
     try {
-      const [m, usedRaw] = await Promise.all([
+      // Streak and crack count are read under the WATCH: a user's guesses all touch
+      // `:guesses`, so two of them never commit from the same read.
+      const [m, usedRaw, streakRaw, cracksRaw, recordRaw] = await Promise.all([
         loadMeta(keys),
         redis.hGet(keys.guesses, userId),
+        redis.hGet(sub.streak, userId),
+        redis.zScore(sub.crackCount, username),
+        redis.get(sub.record),
       ]);
       meta = m;
+      record = recordRaw ? parseStoredDeepest(recordRaw) : null;
+      const streak = nextStreak(parseStreak(streakRaw), day);
+      streakJson = JSON.stringify(streak);
+      const priorCracks =
+        cracksRaw !== undefined && Number.isInteger(cracksRaw) && cracksRaw > 0
+          ? cracksRaw
+          : 0;
+      cracker = { streak: streak.count, cracks: priorCracks };
       // Spec of the round actually open; planGuess refuses a guess for another round as
       // stale before scoring, so `digits` always fit the spec they are scored against.
       const spec = specFor(day, meta.round);
@@ -440,6 +472,7 @@ export const submitGuess = async (input: {
       await release(tx, false);
       return { status: 'rejected', code: plan.code, message: plan.reason };
     }
+    if (plan.crack) cracker = { ...cracker, cracks: cracker.cracks + 1 };
 
     let inMulti = false;
     try {
@@ -451,6 +484,8 @@ export const submitGuess = async (input: {
         member: JSON.stringify(plan.entry),
         score: plan.entry.seq,
       });
+      // Only committed guesses extend the streak (rejected / stale ones never get here).
+      await tx.hSet(sub.streak, { [userId]: streakJson });
       const dayKeys = [keys.guesses, keys.meta, keys.board];
       if (plan.crack) {
         await tx.zAdd(keys.cracks, {
@@ -477,9 +512,14 @@ export const submitGuess = async (input: {
           username: plan.crack.username,
           atMs: plan.crack.atMs,
         };
-        await tx.hSet(subKeys(subredditId).deepest, {
-          [day]: JSON.stringify(deepest),
-        });
+        await tx.hSet(sub.deepest, { [day]: JSON.stringify(deepest) });
+        // All-time safecrackers of the sub (no TTL) and the all-time deepest record.
+        await tx.zIncrBy(sub.crackCount, plan.crack.username, 1);
+        // A missing record (data older than the key) is left to the leaderboard's one-time
+        // migration from the per-day hash, which already includes this crack.
+        if (record && deepestOf([record, deepest]) === deepest)
+          await tx.set(sub.record, JSON.stringify(deepest));
+        await tx.del(sub.leaderboardCache);
         dayKeys.push(keys.cracks);
       }
       for (const key of dayKeys) await tx.expire(key, DAY_KEY_TTL_SECONDS);
@@ -502,7 +542,7 @@ export const submitGuess = async (input: {
       });
       if (outcome === 'committed') {
         console.warn(`[guess] exec threw but guess ${id} is committed:`, error);
-        return okResult(plan);
+        return okResult(plan, cracker);
       }
       if (outcome === 'error') throw error;
       console.warn(
@@ -517,7 +557,7 @@ export const submitGuess = async (input: {
       );
       continue;
     }
-    return okResult(plan);
+    return okResult(plan, cracker);
   }
   return {
     status: 'rejected',

@@ -1,4 +1,4 @@
-# Client contract (M2)
+# Client contract (M3)
 
 What the game client (`src/client`) can rely on. Types and runtime parsers live in
 `src/shared/api.ts`; always parse untrusted JSON with them (`parseStateResponse`,
@@ -10,6 +10,7 @@ refetch `/api/state`.
 | Call | Body | Returns |
 | ---- | ---- | ------- |
 | `GET /api/state` | — | `StateResponse` (or `ErrorResponse`, HTTP 500) |
+| `GET /api/leaderboard` | — | `LeaderboardResponse` (parse with `parseLeaderboardResponse`; `ErrorResponse`, HTTP 500) |
 | `POST /api/guess` | `{ "guess": "0427", "day": state.day, "round": state.round }` | `GuessResponse` (`ok` or `rejected`, both with a fresh `state`); `ErrorResponse` for 400/401/413/500 |
 
 Rejection codes: `limit` (3 guesses per UTC day used, all rounds), `invalid` (does not fit
@@ -35,7 +36,9 @@ show the new `state`). A rejected guess never costs a guess.
 - `channel` — realtime channel of the day (pass to `connectRealtime`).
 - `cracks` (newest ≤ 20 cracked vaults `{ round, username, code, guesses, atMs }`,
   `cracksTotal`), `deepest` (`{ day, round, username, atMs }` or null).
-- Per player: `username` (null when logged out), `guessesUsed`, `guessLimit`, `guessesLeft`.
+- Per player: `username` (null when logged out), `guessesUsed`, `guessLimit`, `guessesLeft`,
+  `streak` (consecutive UTC days with a committed guess, still alive today or yesterday; 0 =
+  none; changes only through your own guess → refetch after `/api/guess`).
 - `serverTime` (ISO) — use `Date.parse(serverTime) - Date.now()` as clock skew for countdowns.
 
 The active secret is never in any response or event; only codes of cracked vaults are.
@@ -50,7 +53,7 @@ drill }` (no per-player fields).
 | `type` | Extra fields | Client action |
 | ------ | ------------ | ------------- |
 | `clue` | `clue { seq, round, username, guess, exact, misplaced }`, `deepest` | If `clue.round === state.round` and `clue.seq` is new, append it to the board; apply `active` if `active.round === state.round`. |
-| `cracked` | `clue` (the cracking guess), `crack` (closed round incl. its `code`), `nextSpec` (vault #round+1), `deepest` | Celebrate `crack.username` and show `crack.code`; then refetch `/api/state` (new vault, fresh board, your `guessesLeft`). |
+| `cracked` | `clue` (the cracking guess), `crack` (closed round incl. its `code`), `nextSpec` (vault #round+1), `deepest`, `crackerStreak` (cracker's streak ≥ 1), `crackerCracks` (cracker's all-time cracks here ≥ 1) | Celebrate `crack.username` and show `crack.code`; then refetch `/api/state` (new vault, fresh board, your `guessesLeft`) and, if open, `/api/leaderboard`. |
 | `drill` | — | Apply `active.drill` / `codesLeft` if `active.round === state.round`, else refetch. |
 
 Rules:
@@ -59,6 +62,33 @@ Rules:
   of order); never lower `totalGuesses`.
 - Your own guess also comes back as an event: dedupe clues by `seq`.
 - `guessesLeft` is never in an event: it only changes through your own `/api/guess` response.
+
+## `LeaderboardResponse` (`GET /api/leaderboard`)
+
+All public; every list is capped, fetch on demand (opening the leaderboard view, after a
+`cracked` event while it is open), no polling needed. The shared part is cached up to 15 s per
+subreddit and dropped on every crack (so a refetch after `cracked` is fresh); `me` is always
+fresh.
+
+- `day` — today (yyyymmdd UTC).
+- `today` — deepest vault cracked today `{ day, round, username, atMs }` or null.
+- `record` — deepest vault ever cracked in this subreddit (same shape; earliest wins a tie) or
+  null; never null when `today` is set.
+- `crackers` — newest ≤ 20 cracks of today, oldest first (`{ round, username, code, guesses,
+  atMs }`); `crackersTotal` = all cracks today.
+- `top` — ≤ 10 rows `{ rank, username, cracks }`, most all-time cracks first (ties ordered
+  by the store; ranks are positions 1…10).
+- `me` — `{ username, cracks, rank: number | null, streak }` for the caller (rank null with no
+  crack yet), or null when logged out.
+
+Flair "Safecracker of the Day 🔓" and the app comment on the day's post are server-side only
+(Reddit itself shows them); they are not in any response and best effort (a failed one is
+retried on later `/api/state` requests, max 3 attempts; a moderator may change the flair).
+UI copy must not promise the flair: say "u/X is today's Safecracker". The cracker's previous
+flair is restored when the flair moves on.
+
+Clients counting their own realtime `clue`s as used tries must dedupe by seq with their own
+bounded set (`applyRealtimeClue` / `rememberOwnSeqs`), not only by the 100-clue board.
 
 ## Refetch flow
 

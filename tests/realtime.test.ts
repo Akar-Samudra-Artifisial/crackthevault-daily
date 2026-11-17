@@ -37,6 +37,7 @@ const state: StateResponse = {
   guessesUsed: 3,
   guessLimit: 3,
   guessesLeft: 0,
+  streak: 4,
   serverTime: '2026-11-17T10:00:00.000Z',
 };
 
@@ -62,6 +63,7 @@ test('clue event round-trips through the parser and carries only public fields',
     entry: entry(2, [0, 1, 2], 1),
     crack: null,
     nextSpec: null,
+    cracker: { streak: 4, cracks: 2 },
   });
   assert.equal(event.type, 'clue');
   assert.deepEqual(parseRealtimeEvent(roundTrip(event)), event);
@@ -84,12 +86,16 @@ test('cracked event: closed round code + next spec, active drill only opened dia
     entry: entry(2, [3, 1, 2], 3),
     crack,
     nextSpec: specFor(DAY, 3),
+    cracker: { streak: 4, cracks: 2 },
   });
   assert.equal(event.type, 'cracked');
   const parsed = parseRealtimeEvent(roundTrip(event));
   assert.deepEqual(parsed, event);
   if (parsed?.type !== 'cracked') return;
   assert.deepEqual(parsed.crack.code, [3, 1, 2]);
+  assert.equal(parsed.crackerStreak, 4);
+  assert.equal(parsed.crackerCracks, 2);
+  assert.equal(parseRealtimeEvent({ ...event, crackerStreak: 0 }), null);
   assert.equal(parsed.nextSpec.round, 3);
   assert.deepEqual(parsed.deepest, {
     day: DAY,
@@ -115,6 +121,7 @@ test('drill event round-trips; malformed events are refused', () => {
       atMs: 9,
     },
     nextSpec: specFor(DAY, 3),
+    cracker: { streak: 4, cracks: 2 },
   });
   const bad: unknown[] = [
     null,

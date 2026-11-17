@@ -29,13 +29,33 @@ export const vaultKeys = (subredditId: string, day: string) => {
     guesses: `${p}:guesses`,
     /** daily post marker: "pending:<ms>" while creating, then the post id */
     post: `${p}:post`,
+    /** SET NX marker: Safecracker flair handled for the crack of `round` (once per round) */
+    flairDone: (round: number) => `${p}:reward:flair:${round}`,
+    /** SET NX marker: app comment posted for the crack of `round` (once per round) */
+    commentDone: (round: number) => `${p}:reward:comment:${round}`,
+    /** hash "flair:N" / "comment:N" → failed attempts (retried from /api/state, max 3) */
+    rewardRetry: `${p}:reward:retry`,
   };
 };
 
-/** Per-subreddit keys that outlive a day. */
+/** Per-subreddit keys that outlive a day (no TTL). */
 export const subKeys = (subredditId: string) => ({
-  /** hash userId → JSON Streak (M3) */
+  /** hash userId → JSON Streak (consecutive UTC days with a committed guess) */
   streak: `v:${subredditId}:streak`,
+  /** zset username → vaults cracked all-time in this subreddit */
+  crackCount: `v:${subredditId}:crackcount`,
+  /** string "day:round:username" — who wears the Safecracker of the Day flair */
+  flairHolder: `v:${subredditId}:safecracker`,
+  /** hash username → JSON SavedFlair (flair worn before ours; restored when ours goes) */
+  flairSaved: `v:${subredditId}:safecracker:saved`,
+  /** hash username → failed attempts to take our flair away (retried on later rewards) */
+  flairPendingRemoval: `v:${subredditId}:safecracker:pending`,
+  /** short SET NX lock: one run over flairPendingRemoval at a time */
+  flairPendingLock: `v:${subredditId}:safecracker:pending:lock`,
+  /** JSON DeepestRecord — deepest vault ever cracked here (set in the crack transaction) */
+  record: `v:${subredditId}:record`,
+  /** hash day, round, size, body — /api/leaderboard public part, 15 s; deleted on a crack */
+  leaderboardCache: `v:${subredditId}:lbcache`,
   /** hash day (yyyymmdd) → JSON DeepestRecord (deepest vault cracked that day; M3 leaderboard) */
   deepest: `v:${subredditId}:deepest`,
 });

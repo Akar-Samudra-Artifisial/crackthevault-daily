@@ -6,6 +6,10 @@ import type {
   RealtimeEvent,
   StateResponse,
 } from '../../src/shared/api';
+import type {
+  LeaderboardResponse,
+  MyStanding,
+} from '../../src/shared/safecracker';
 import type { Backend, RealtimeHandlers } from '../../src/client/game-app';
 import {
   remainingCodes,
@@ -44,6 +48,29 @@ export const scenarioFromUrl = (): Scenario => {
   return SCENARIOS.find((s) => s === raw) ?? 'board';
 };
 
+/** /api/leaderboard mock: `?lb=full|empty|error` (default: empty for `s=empty`, else full). */
+export type LeaderboardMode = 'full' | 'top' | 'empty' | 'error';
+
+const leaderboardModeFromUrl = (scenario: Scenario): LeaderboardMode => {
+  const raw = new URLSearchParams(window.location.search).get('lb');
+  if (raw === 'full' || raw === 'top' || raw === 'empty' || raw === 'error')
+    return raw;
+  return scenario === 'empty' ? 'empty' : 'full';
+};
+
+const TOP_CREW: readonly [string, number][] = [
+  ['keymaster_9', 41],
+  ['tumbler_tom', 33],
+  ['vaultrat', 29],
+  ['dialtone', 18],
+  ['brassmonkey', 15],
+  ['mintcondition', 11],
+  ['quietcracker', 9],
+  ['lukewarm_toast', 7],
+  ['the_long_dial_of_the_law', 6],
+  ['pinpusher', 5],
+];
+
 const DAY = '20261117';
 const ME = 'safe_hands';
 const HOUR = 3_600_000;
@@ -71,7 +98,9 @@ const SEEDED: { who: string; guess: number[] }[] = [
 ];
 
 const randomId = () =>
-  Array.from({ length: 12 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  Array.from({ length: 12 }, () =>
+    Math.floor(Math.random() * 16).toString(16)
+  ).join('');
 
 export const createMock = (scenario: Scenario) => {
   const roundStart = Date.now() - 2 * HOUR;
@@ -79,7 +108,10 @@ export const createMock = (scenario: Scenario) => {
   let round = scenario === 'empty' ? 1 : scenario === 'maxdials' ? 9 : 6;
   const codeFor = (r: number, salt: number): number[] => {
     const s = specFor(DAY, r);
-    return Array.from({ length: s.dials }, (_, i) => (i * 3 + salt) % (s.maxDigit + 1));
+    return Array.from(
+      { length: s.dials },
+      (_, i) => (i * 3 + salt) % (s.maxDigit + 1)
+    );
   };
   let secret = round === 6 ? [6, 2, 7, 4, 1] : codeFor(round, 5);
   let seq = 20;
@@ -94,7 +126,9 @@ export const createMock = (scenario: Scenario) => {
   let revealed: DialReveal[] =
     scenario === 'drill' ? [{ dial: 1, digit: secret[1] ?? 0 }] : [];
   let nextDrillAt: number | null =
-    scenario === 'drill' ? Date.now() + 5 * HOUR + 47 * 60_000 : Date.now() + 3 * HOUR + 12 * 60_000;
+    scenario === 'drill'
+      ? Date.now() + 5 * HOUR + 47 * 60_000
+      : Date.now() + 3 * HOUR + 12 * 60_000;
   let guessesUsed = scenario === 'limit' ? 3 : scenario === 'empty' ? 0 : 2;
   const username = scenario === 'loggedout' ? null : ME;
   let staleOnce = scenario === 'stale';
@@ -103,7 +137,14 @@ export const createMock = (scenario: Scenario) => {
   const spec = () => specFor(DAY, round);
   const push = (who: string, guess: number[]): BoardEntry => {
     const fb = scoreGuess(secret, guess);
-    const entry: BoardEntry = { id: randomId(), seq: ++seq, round, username: who, guess, ...fb };
+    const entry: BoardEntry = {
+      id: randomId(),
+      seq: ++seq,
+      round,
+      username: who,
+      guess,
+      ...fb,
+    };
     board.push(entry);
     return entry;
   };
@@ -111,13 +152,15 @@ export const createMock = (scenario: Scenario) => {
     // Seeded guesses fit the open vault: padded/cut to its dials, digits kept in range.
     const { dials, maxDigit } = spec();
     for (const s of SEEDED) {
-      const guess = Array.from({ length: dials }, (_, i) => (s.guess[i] ?? i) % (maxDigit + 1));
+      const guess = Array.from(
+        { length: dials },
+        (_, i) => (s.guess[i] ?? i) % (maxDigit + 1)
+      );
       push(s.who, guess);
     }
   }
 
-  const codesLeft = () =>
-    remainingCodes(spec(), board, revealed);
+  const codesLeft = () => remainingCodes(spec(), board, revealed);
 
   const state = (): StateResponse => {
     const stale = staleOnce;
@@ -133,15 +176,27 @@ export const createMock = (scenario: Scenario) => {
       boardTotal: board.length,
       codesLeft: stale ? 74 : codesLeft(),
       codesLeftStale: stale,
-      drill: { revealed: revealed.map((r) => ({ ...r })), nextDrillAt, intervalMs: 6 * HOUR },
+      drill: {
+        revealed: revealed.map((r) => ({ ...r })),
+        nextDrillAt,
+        intervalMs: 6 * HOUR,
+      },
       channel: `vault_t5_preview_${DAY}`,
       cracks: cracks.map((c) => ({ ...c, code: [...c.code] })),
       cracksTotal: cracks.length,
-      deepest: last ? { day: DAY, round: last.round, username: last.username, atMs: last.atMs } : null,
+      deepest: last
+        ? {
+            day: DAY,
+            round: last.round,
+            username: last.username,
+            atMs: last.atMs,
+          }
+        : null,
       username,
       guessesUsed,
       guessLimit: 3,
       guessesLeft: Math.max(0, 3 - guessesUsed),
+      streak: 2,
       serverTime: new Date().toISOString(),
     };
   };
@@ -185,7 +240,10 @@ export const createMock = (scenario: Scenario) => {
       };
       cracks.push(crack);
       round++;
-      secret = Array.from({ length: specFor(DAY, round).dials }, (_, i) => (i * 3 + 1) % 8);
+      secret = Array.from(
+        { length: specFor(DAY, round).dials },
+        (_, i) => (i * 3 + 1) % 8
+      );
       board = [];
       revealed = [];
       nextDrillAt = Date.now() + 6 * HOUR;
@@ -197,28 +255,104 @@ export const createMock = (scenario: Scenario) => {
         crack,
         nextSpec: spec(),
         active: active(),
-        deepest: { day: DAY, round: crack.round, username: who, atMs: crack.atMs },
+        deepest: {
+          day: DAY,
+          round: crack.round,
+          username: who,
+          atMs: crack.atMs,
+        },
+        crackerStreak: who === ME ? 3 : 6,
+        crackerCracks: cracks.filter((c) => c.username === who).length + 40,
       });
       return { entry, cracked: true };
     }
     const st = state();
-    emit({ type: 'clue', day: DAY, round: entry.round, clue, active: active(), deepest: st.deepest });
+    emit({
+      type: 'clue',
+      day: DAY,
+      round: entry.round,
+      clue,
+      active: active(),
+      deepest: st.deepest,
+    });
     return { entry, cracked: false };
+  };
+
+  const lbMode = leaderboardModeFromUrl(scenario);
+
+  const leaderboard = (): LeaderboardResponse => {
+    const empty = lbMode === 'empty';
+    const today = empty ? null : state().deepest;
+    const crackers = empty
+      ? []
+      : cracks.slice(-20).map((c) => ({ ...c, code: [...c.code] }));
+    const me: MyStanding | null = username
+      ? empty
+        ? { username, cracks: 0, rank: null, streak: 0 }
+        : lbMode === 'top'
+          ? { username, cracks: 7, rank: 8, streak: 2 }
+          : { username, cracks: 3, rank: 14, streak: 2 }
+      : null;
+    // `top`: you are 8th, so your row is highlighted inside the top 10.
+    const crew = TOP_CREW.map(([name, n]): [string, number] =>
+      lbMode === 'top' && username && name === 'lukewarm_toast'
+        ? [username, n]
+        : [name, n]
+    );
+    return {
+      status: 'ok',
+      day: DAY,
+      today,
+      record: empty
+        ? null
+        : {
+            day: '20261103',
+            round: 11,
+            username: 'keymaster_9',
+            atMs: Date.now() - 14 * 24 * HOUR,
+          },
+      crackers,
+      crackersTotal: empty ? 0 : cracks.length,
+      top: empty
+        ? []
+        : crew.map(([name, n], i) => ({
+            rank: i + 1,
+            username: name,
+            cracks: n,
+          })),
+      me,
+    };
   };
 
   const backend: Backend = {
     fetchState: async () => state(),
+    fetchLeaderboard: async () => {
+      await new Promise((r) => window.setTimeout(r, 450));
+      if (lbMode === 'error') throw new Error('mock: leaderboard unavailable');
+      return leaderboard();
+    },
     postGuess: async (_st, raw): Promise<GuessResponse> => {
       await new Promise((r) => window.setTimeout(r, 350));
       if (!username || guessesUsed >= 3)
-        return { status: 'rejected', code: 'limit', message: 'limit', state: state() };
+        return {
+          status: 'rejected',
+          code: 'limit',
+          message: 'limit',
+          state: state(),
+        };
       const guess = [...raw].map(Number);
       guessesUsed++;
       const playedRound = round;
       const { entry, cracked } = play(username, guess);
       return {
         status: 'ok',
-        result: { guess, exact: entry.exact, misplaced: entry.misplaced, cracked, round: playedRound },
+        result: {
+          guess,
+          exact: entry.exact,
+          misplaced: entry.misplaced,
+          cracked,
+          round: playedRound,
+        },
         state: state(),
       };
     },
@@ -246,7 +380,9 @@ export const createMock = (scenario: Scenario) => {
       window.setInterval(() => {
         const who = CROWD[i % CROWD.length] ?? 'vaultrat';
         const max = spec().maxDigit;
-        const guess = Array.from({ length: spec().dials }, () => Math.floor(Math.random() * (max + 1)));
+        const guess = Array.from({ length: spec().dials }, () =>
+          Math.floor(Math.random() * (max + 1))
+        );
         if (guess.join('') !== secret.join('')) play(who, guess);
         i++;
       }, 2500);

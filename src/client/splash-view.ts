@@ -2,7 +2,13 @@
 // No Devvit imports here so the local preview can mount it with mock data.
 import type { StateResponse } from '../shared/api';
 import { h } from './dom';
-import { codesLeftText, codesLeftWord, triesText } from './format';
+import {
+  codesLeftText,
+  codesLeftWord,
+  streakText,
+  tierText,
+  triesText,
+} from './format';
 import { vaultDoor } from './vault-door';
 
 export type SplashView = {
@@ -22,6 +28,7 @@ export const mountSplash = (
   });
   const cracked = h('p', { class: 'splash-cracked', hidden: true });
   const tries = h('p', { class: 'splash-tries', hidden: true });
+  const streak = h('p', { class: 'splash-streak', hidden: true });
   const button = h('button', {
     class: 'btn btn-primary btn-xl splash-button',
     type: 'button',
@@ -42,13 +49,14 @@ export const mountSplash = (
         status,
         cracked,
         tries,
+        streak,
         button
       )
     )
   );
 
   const render = (st: StateResponse) => {
-    kicker.textContent = `${st.spec.name} · ${st.spec.difficulty}`;
+    kicker.textContent = `${st.spec.name} · ${tierText(st.spec)}`;
     title.textContent = `Vault #${st.round}`;
 
     const codes = h(
@@ -78,6 +86,11 @@ export const mountSplash = (
       tries.textContent = `You have ${triesText(st.guessesLeft)} today`;
       button.textContent = 'Crack it';
     }
+    streak.hidden = !st.username || st.streak <= 0;
+    streak.textContent =
+      st.guessesUsed > 0
+        ? streakText(st.streak)
+        : `${streakText(st.streak)} — try today to keep it`;
   };
 
   const fail = () => {

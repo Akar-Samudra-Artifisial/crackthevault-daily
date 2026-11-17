@@ -2,6 +2,11 @@
 // directly with `node --test`.
 import type { DrillView } from './drill';
 import type {
+  LeaderboardResponse,
+  MyStanding,
+  SafecrackerRow,
+} from './safecracker';
+import type {
   BoardEntry,
   CrackRecord,
   DeepestRecord,
@@ -51,6 +56,8 @@ export type StateResponse = {
   guessesUsed: number;
   guessLimit: number;
   guessesLeft: number;
+  /** Your visible guess streak (consecutive UTC days with a guess); 0 when logged out. */
+  streak: number;
   serverTime: string;
 };
 
@@ -135,6 +142,9 @@ export type RealtimeEvent =
       nextSpec: VaultSpec;
       active: ActiveVault;
       deepest: DeepestRecord;
+      /** Cracker's guess streak and all-time cracks in this subreddit (incl. this one). */
+      crackerStreak: number;
+      crackerCracks: number;
     }
   | { type: 'drill'; day: string; round: number; active: ActiveVault };
 
@@ -146,7 +156,8 @@ export type TaskBody = {
 /* ---------------- Runtime parsers (untrusted JSON → typed, no casts) ---------------- */
 
 const DAY_RE = /^\d{8}$/;
-const USERNAME_RE = /^[A-Za-z0-9_-]{1,32}$/;
+/** Same pattern as USERNAME_PATTERN in src/shared/safecracker.ts (tests/safecracker.test.ts). */
+export const USERNAME_RE = /^[A-Za-z0-9_-]{1,32}$/;
 const ID_RE = /^[A-Za-z0-9-]{8,64}$/;
 
 const prop = (value: unknown, key: string): unknown =>
@@ -381,6 +392,7 @@ export const parseStateResponse = (value: unknown): StateResponse | null => {
   const guessesUsed = nonNegInt(value, 'guessesUsed');
   const guessLimit = nonNegInt(value, 'guessLimit');
   const guessesLeft = nonNegInt(value, 'guessesLeft');
+  const streak = nonNegInt(value, 'streak');
   const serverTime = str(value, 'serverTime');
   if (
     day === null ||
@@ -404,6 +416,7 @@ export const parseStateResponse = (value: unknown): StateResponse | null => {
     guessesUsed === null ||
     guessLimit === null ||
     guessesLeft === null ||
+    streak === null ||
     serverTime === null
   )
     return null;
@@ -426,6 +439,7 @@ export const parseStateResponse = (value: unknown): StateResponse | null => {
     guessesUsed,
     guessLimit,
     guessesLeft,
+    streak,
     serverTime,
   };
 };
@@ -562,7 +576,13 @@ export const parseRealtimeEvent = (value: unknown): RealtimeEvent | null => {
   const crack = parseCrackRecord(prop(value, 'crack'));
   const nextSpec = parseVaultSpec(prop(value, 'nextSpec'));
   const deepest = parseDeepestRecord(prop(value, 'deepest'));
+  const crackerStreak = nonNegInt(value, 'crackerStreak');
+  const crackerCracks = nonNegInt(value, 'crackerCracks');
   if (
+    crackerStreak === null ||
+    crackerStreak < 1 ||
+    crackerCracks === null ||
+    crackerCracks < 1 ||
     !crack ||
     crack.round !== round ||
     crack.code.join('') !== clue.guess.join('') ||
@@ -576,7 +596,90 @@ export const parseRealtimeEvent = (value: unknown): RealtimeEvent | null => {
     return null;
   const active = parseActiveVault(prop(value, 'active'), day);
   if (!active || active.round <= round) return null;
-  return { type, day, round, clue, crack, nextSpec, active, deepest };
+  return {
+    type,
+    day,
+    round,
+    clue,
+    crack,
+    nextSpec,
+    active,
+    deepest,
+    crackerStreak,
+    crackerCracks,
+  };
+};
+
+/* ---------------- Leaderboard ---------------- */
+
+/** Same caps as LEADERBOARD_TOP / LEADERBOARD_CRACKERS (src/shared/safecracker.ts). */
+const LEADERBOARD_TOP_MAX = 10;
+const LEADERBOARD_CRACKERS_MAX = 20;
+
+const parseSafecrackerRow = (value: unknown): SafecrackerRow | null => {
+  const rank = nonNegInt(value, 'rank');
+  const username = str(value, 'username');
+  const cracks = nonNegInt(value, 'cracks');
+  if (
+    rank === null ||
+    rank < 1 ||
+    username === null ||
+    !USERNAME_RE.test(username) ||
+    cracks === null ||
+    cracks < 1
+  )
+    return null;
+  return { rank, username, cracks };
+};
+
+const parseMyStanding = (value: unknown): MyStanding | null => {
+  const username = str(value, 'username');
+  const cracks = nonNegInt(value, 'cracks');
+  const rankRaw = prop(value, 'rank');
+  const rank = rankRaw === null ? null : nonNegInt(value, 'rank');
+  const streak = nonNegInt(value, 'streak');
+  if (
+    username === null ||
+    !USERNAME_RE.test(username) ||
+    cracks === null ||
+    (rankRaw !== null && (rank === null || rank < 1)) ||
+    streak === null
+  )
+    return null;
+  return { username, cracks, rank, streak };
+};
+
+/** GET /api/leaderboard body → LeaderboardResponse; null when malformed or oversized. */
+export const parseLeaderboardResponse = (
+  value: unknown
+): LeaderboardResponse | null => {
+  if (prop(value, 'status') !== 'ok') return null;
+  const day = str(value, 'day');
+  const todayRaw = prop(value, 'today');
+  const today = todayRaw === null ? null : parseDeepestRecord(todayRaw);
+  const recordRaw = prop(value, 'record');
+  const record = recordRaw === null ? null : parseDeepestRecord(recordRaw);
+  const crackers = parseList(prop(value, 'crackers'), parseCrackRecord);
+  const crackersTotal = nonNegInt(value, 'crackersTotal');
+  const top = parseList(prop(value, 'top'), parseSafecrackerRow);
+  const meRaw = prop(value, 'me');
+  const me = meRaw === null ? null : parseMyStanding(meRaw);
+  if (
+    day === null ||
+    !DAY_RE.test(day) ||
+    (todayRaw !== null && (!today || today.day !== day)) ||
+    (recordRaw !== null && !record) ||
+    (today !== null && record === null) ||
+    !crackers ||
+    crackers.length > LEADERBOARD_CRACKERS_MAX ||
+    crackersTotal === null ||
+    crackersTotal < crackers.length ||
+    !top ||
+    top.length > LEADERBOARD_TOP_MAX ||
+    (meRaw !== null && !me)
+  )
+    return null;
+  return { status: 'ok', day, today, record, crackers, crackersTotal, top, me };
 };
 
 export const parseTaskBody = (value: unknown): TaskBody | null => {

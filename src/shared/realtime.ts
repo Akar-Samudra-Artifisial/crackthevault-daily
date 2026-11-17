@@ -43,15 +43,17 @@ const toClue = (e: BoardEntry): RealtimeClue => ({
 /**
  * Event for a committed guess. `state` is the public state read after the commit (it may
  * already include later guesses: `active` describes the vault open now). `nextSpec` is the
- * spec of vault #crack.round + 1, required when `crack` is set.
+ * spec of vault #crack.round + 1, required when `crack` is set. `cracker` = the guesser's
+ * streak and all-time cracks after this guess (public leaderboard data).
  */
 export const guessEvent = (input: {
   state: StateResponse;
   entry: BoardEntry;
   crack: CrackRecord | null;
   nextSpec: VaultSpec | null;
+  cracker: { streak: number; cracks: number };
 }): RealtimeEvent => {
-  const { state, entry, crack, nextSpec } = input;
+  const { state, entry, crack, nextSpec, cracker } = input;
   const clue = toClue(entry);
   const active = activeVault(state);
   if (crack && nextSpec)
@@ -70,6 +72,8 @@ export const guessEvent = (input: {
         username: crack.username,
         atMs: crack.atMs,
       },
+      crackerStreak: Math.max(1, cracker.streak),
+      crackerCracks: Math.max(1, cracker.cracks),
     };
   return {
     type: 'clue',

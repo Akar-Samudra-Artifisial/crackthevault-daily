@@ -1,7 +1,8 @@
-// Daily drop streak (pure; no runtime imports so unit tests can load it directly).
+// Daily guess streak: consecutive UTC days with at least one committed guess (pure; no
+// runtime imports so unit tests can load it directly).
 
 export type Streak = {
-  /** Last UTC day (yyyymmdd) the user dropped. */
+  /** Last UTC day (yyyymmdd) the user guessed. */
   day: string;
   count: number;
 };
@@ -27,7 +28,7 @@ export const previousDay = (day: string): string => {
   return fromDate(d);
 };
 
-/** Streak after dropping on `today`: same day keeps it, the next day extends it, a gap resets to 1. */
+/** Streak after guessing on `today`: same day keeps it, the next day extends it, a gap resets to 1. */
 export const nextStreak = (prev: Streak | null, today: string): Streak => {
   if (!prev) return { day: today, count: 1 };
   if (prev.day === today) return prev;
@@ -36,7 +37,7 @@ export const nextStreak = (prev: Streak | null, today: string): Streak => {
   return { day: today, count: 1 };
 };
 
-/** Streak to show on `today`: still alive if the last drop was today or yesterday. */
+/** Streak to show on `today`: still alive if the last guess was today or yesterday. */
 export const visibleStreak = (prev: Streak | null, today: string): number =>
   prev && (prev.day === today || prev.day === previousDay(today))
     ? prev.count

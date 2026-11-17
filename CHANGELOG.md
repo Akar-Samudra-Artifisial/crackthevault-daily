@@ -11,6 +11,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Vault rules in `src/shared/vault.ts`: code-breaking clues as counts only (🟢 right dial,
   🟡 other dial, never per dial; correct for duplicate digits), guess parsing, secret
   generation, 3-guesses-per-day limit (no moderator bypass).
+- M3 server: after a crack the app gives the cracker the "Safecracker of the Day 🔓" user
+  flair (taken from the previous holder only if they still wear it) and comments
+  "u/X cracked vault #N (<name>) in K guesses 🔓" with the cracked code on the day's post;
+  both best effort and once per (day, round) via SET NX. The flair holder is claimed in a
+  WATCH/MULTI by crack order `(day, round)` before calling Reddit (a stale reward revokes its
+  own flair); the cracker's previous flair is saved and restored when the flair moves on;
+  failed removals are queued per subreddit and retried on later rewards; a failed flair or
+  comment drops its marker and is retried from `/api/state` (max 3 attempts).
+- Leaderboard: all-time record kept in `v:{sub}:record` by the crack transaction (no scan of
+  the per-day hash); shared part cached 15 s per subreddit, invalidated on a crack.
+
+### Security
+
+- Crack comments escape `&`, `<`, `>` and `@` besides markdown control characters; flair
+  holder parsing accepts every valid Reddit username (same pattern as the API parser).
+- Client: own realtime clues are deduped by a bounded own-seq set (not only the 100-clue
+  board); the celebration says "u/X is today's Safecracker" instead of promising the flair.
+- Guess streak (consecutive UTC days with a committed guess), updated in the guess
+  transaction; `StateResponse.streak`.
+- `GET /api/leaderboard` (`parseLeaderboardResponse`): today's deepest vault + all-time
+  record, today's newest 20 crackers, top 10 safecrackers all-time (crack-count zset, no
+  TTL), and the caller's cracks/rank/streak. The `cracked` event carries `crackerStreak` and
+  `crackerCracks`.
 - Realtime (M2 server): after a committed guess `POST /api/guess` publishes a public
   `RealtimeEvent` (`clue` / `cracked`) on `vault_{sub}_{day}` (`StateResponse.channel`); the
   first request that sees a newly drilled dial publishes `drill`. Publish failures are logged
@@ -54,8 +77,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   realtime is down, refetch at 00:00 UTC; friendly messages for every rejection code.
 - Local UI preview with mock data (`npm run preview:ui`, `tools/preview/`), not part of the
   production build.
+- M3 UI: the 🏆 chip opens a leaderboard sheet (deepest vault today + all-time record, today's
+  cracks, top 10 safecrackers with your row highlighted, your place and streak) with loading,
+  empty and error/retry states; it refreshes when a vault is cracked while it is open, and
+  closes with ✕, Escape or a backdrop tap, returning focus to the chip.
+- M3 UI: your "🔥 N-day streak" in the game view and on the feed splash.
+- M3 UI: the crack overlay names the "Safecracker of the Day 🔓" and shows the cracker's streak
+  and crack count.
+- Preview: `?lb=full|top|empty|error` mocks for the leaderboard sheet.
 
 ### Changed
+
+- The game header and splash show the vault's tier ("Tier 9 of 9") instead of the weekday
+  difficulty word.
+- On screens ≤ 360 px the header, clue rows and dials are slimmer so the clue board shows
+  at least 4 rows at 320×568.
 
 - Cracked vaults are stored in their own `:cracks` zset (written only on a crack) instead of a
   JSON list inside `:meta`.
@@ -63,6 +99,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- With the game open in two tabs, a guess in one tab now lowers the tries left in the other
+  (from the realtime clue), never below 0.
 - A guess whose EXEC threw after committing is no longer recorded twice on retry (each request
   carries a unique id that is checked on the board first).
 - WATCH conflict retries use exponential backoff with jitter (< 1 s total).

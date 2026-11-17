@@ -2,13 +2,18 @@
 import type { BoardEntry } from '../shared/vault';
 import { h } from './dom';
 
-export const clueSentence = (e: Pick<BoardEntry, 'guess' | 'exact' | 'misplaced' | 'username'>) =>
+export const clueSentence = (
+  e: Pick<BoardEntry, 'guess' | 'exact' | 'misplaced' | 'username'>
+) =>
   `u/${e.username} tried ${e.guess.join(' ')}: ${e.exact} on the right dial, ${e.misplaced} on another dial`;
 
 const peg = (kind: 'green' | 'yellow', n: number) =>
   h(
     'span',
-    { class: `peg peg-${kind}${n === 0 ? ' is-zero' : ''}`, 'aria-hidden': 'true' },
+    {
+      class: `peg peg-${kind}${n === 0 ? ' is-zero' : ''}`,
+      'aria-hidden': 'true',
+    },
     String(n)
   );
 
@@ -42,6 +47,10 @@ export const clueRow = (
       peg('yellow', e.misplaced)
     ),
     who,
-    h('span', { class: 'sr-only' }, `${clueSentence(e)}${opts.mine ? ' (you)' : ''}`)
+    h(
+      'span',
+      { class: 'sr-only' },
+      `${clueSentence(e)}${opts.mine ? ' (you)' : ''}`
+    )
   );
 };

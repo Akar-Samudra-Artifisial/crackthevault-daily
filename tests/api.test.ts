@@ -46,6 +46,7 @@ const state: StateResponse = {
   guessesUsed: 2,
   guessLimit: 3,
   guessesLeft: 1,
+  streak: 3,
   serverTime: '2026-11-17T10:00:00.000Z',
 };
 
@@ -98,6 +99,8 @@ test('parseStateResponse round-trips and checks day/spec consistency', () => {
   );
   assert.equal(parseStateResponse({ ...state, channel: 'vault-t5:x' }), null);
   assert.equal(parseStateResponse({ ...state, channel: undefined }), null);
+  assert.equal(parseStateResponse({ ...state, streak: -1 }), null);
+  assert.equal(parseStateResponse({ ...state, streak: undefined }), null);
   assert.equal(parseStateResponse({ ...state, deepest: undefined }), null);
   assert.equal(
     parseStateResponse({
