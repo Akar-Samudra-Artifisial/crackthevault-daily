@@ -96,7 +96,7 @@ https://youtu.be/gKDegcfmW3E
 - Sponsor / Special Prizes: [TODO: decide, same options as submission 1]
 - AI use: brand art (icon, banner, wordmark) made with Runware image models; game logic and code are our own.
 
-Gallery: [TODO: choose images from real playtest stills, in this order: thumbnail, feed splash, dials + guess, clue board, drill, crack + flair/comment, leaderboard]
+Gallery (7 images from the real playtest on r/crackthevault_dev, in this order): gallery/00-thumbnail.png (also project thumbnail) "One shared vault per subreddit; the crowd cracks it together."; gallery/01-splash.png "Crack the Vault lives right inside a Reddit post: today's vault, codes left, your tries."; gallery/02-dials-guess.png "Set the dials and try a code: three tries a day per player."; gallery/03-clue-board.png "Every guess lands on one shared clue board with code-breaking clues, and the Next dial timer opens a dial when the crowd is stuck."; gallery/04-crack.png "Crack the code and the vault swings open: you are today's Safecracker."; gallery/05-comment.png "The app posts every crack as a comment with the winning code, then the next vault opens."; gallery/06-leaderboard.png "Safecrackers leaderboard: deepest vault today, all-time record and top crackers." No drill image: the drill was not captured in the real playtest.
 
 ---
 
